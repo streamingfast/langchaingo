@@ -134,6 +134,7 @@ func getLLMCallOptions(options ...ChainCallOption) []llms.CallOption {
 	for _, option := range options {
 		option(opts)
 	}
+
 	if opts.StreamingFunc == nil && opts.CallbackHandler != nil {
 		opts.StreamingFunc = func(ctx context.Context, chunk []byte) error {
 			opts.CallbackHandler.HandleStreamingFunc(ctx, chunk)
@@ -156,4 +157,12 @@ func getLLMCallOptions(options ...ChainCallOption) []llms.CallOption {
 	}
 
 	return chainCallOption
+}
+
+func GetChainCallCallbackHandler(options []ChainCallOption) callbacks.Handler {
+	opts := &chainCallOption{}
+	for _, option := range options {
+		option(opts)
+	}
+	return opts.CallbackHandler
 }

@@ -40,7 +40,7 @@ func NewLLMChain(llm llms.Model, prompt prompts.FormatPrompter, opts ...ChainCal
 		OutputParser:     outputparser.NewSimple(),
 		Memory:           memory.NewSimple(),
 		OutputKey:        _llmChainDefaultOutputKey,
-		CallbacksHandler: opt.CallbackHandler,
+		CallbacksHandler: opt.CallbackHandler, //FIXME: this seems to overwrite the callback called in the Call function
 	}
 
 	return chain
@@ -50,13 +50,35 @@ func NewLLMChain(llm llms.Model, prompt prompts.FormatPrompter, opts ...ChainCal
 // the output from the llm with the output parser. This function should not be called
 // directly, use rather the Call or Run function if the prompt only requires one input
 // value.
-func (c LLMChain) Call(ctx context.Context, values map[string]any, options ...ChainCallOption) (map[string]any, error) {
+func (c LLMChain) Call(ctx context.Context, values map[string]any, options ...ChainCallOption) (outputs map[string]any, err error) {
+	cbHandler := GetChainCallCallbackHandler(options)
+	if cbHandler != nil {
+		cbHandler.HandleChainStart(ctx, values)
+		defer func() {
+			cbHandler.HandleChainEnd(ctx, outputs)
+		}()
+	}
+
 	promptValue, err := c.Prompt.FormatPrompt(values)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := llms.GenerateFromSinglePrompt(ctx, c.LLM, promptValue.String(), getLLMCallOptions(options...)...)
+	prompt := promptValue.String()
+
+	// cbHandler.HandleLLMGenerateContentStart(ctx, []llms.MessageContent{
+	// 	{
+	// 		Role:  schema.ChatMessageTypeHuman,
+	// 		Parts: []llms.ContentPart{llms.TextContent{Text: prompt}},
+	// 	},
+	// })
+	// defer func() {
+	// 	cbHandler.HandleLLMGenerateContentEnd(ctx, &llms.ContentResponse{
+	// 		Choices: result.Choices,
+	// 	})
+	// }()
+
+	result, err := llms.GenerateFromSinglePrompt(ctx, c.LLM, prompt, getLLMCallOptions(options...)...)
 	if err != nil {
 		return nil, err
 	}

@@ -42,21 +42,21 @@ func Call(ctx context.Context, c Chain, inputValues map[string]any, options ...C
 		fullValues[key] = value
 	}
 
-	callbacksHandler := getChainCallbackHandler(c)
-	if callbacksHandler != nil {
-		callbacksHandler.HandleChainStart(ctx, inputValues)
+	chainCallbackHandlers := getChainCallbackHandler(c)
+	if chainCallbackHandlers != nil {
+		chainCallbackHandlers.HandleChainStart(ctx, inputValues)
 	}
 
 	outputValues, err := callChain(ctx, c, fullValues, options...)
 	if err != nil {
-		if callbacksHandler != nil {
-			callbacksHandler.HandleChainError(ctx, err)
+		if chainCallbackHandlers != nil {
+			chainCallbackHandlers.HandleChainError(ctx, err)
 		}
 		return outputValues, err
 	}
 
-	if callbacksHandler != nil {
-		callbacksHandler.HandleChainEnd(ctx, outputValues)
+	if chainCallbackHandlers != nil {
+		chainCallbackHandlers.HandleChainEnd(ctx, outputValues) // Call the chain end
 	}
 
 	if err = c.GetMemory().SaveContext(ctx, inputValues, outputValues); err != nil {

@@ -3,6 +3,7 @@ package chains
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/tmc/langchaingo/llms"
@@ -595,6 +596,7 @@ func NewConstitutional(llm llms.Model, chain LLMChain, constitutionalPrinciples 
 func (c *Constitutional) Call(ctx context.Context, inputs map[string]any, options ...ChainCallOption) (map[string]any,
 	error,
 ) {
+	fmt.Println("Constitutional Call")
 	result, err := c.chain.Call(ctx, inputs, options...)
 	if err != nil {
 		return nil, err
