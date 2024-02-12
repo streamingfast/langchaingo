@@ -137,9 +137,6 @@ func (t *LangChainTracer) HandleChainStart(ctx context.Context, inputs map[strin
 // HandleChainEnd implements callbacks.Handler.
 func (t *LangChainTracer) HandleChainEnd(ctx context.Context, outputs map[string]any) {
 	t.activeTree.
-		SetClient(t.client).
-		SetProjectName(t.projectName).
-		SetRunType("chain").
 		SetOutputs(outputs).
 		SetEndTime(time.Now())
 
