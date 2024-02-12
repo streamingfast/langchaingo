@@ -52,30 +52,59 @@ func (t *LangChainTracer) HandleText(ctx context.Context, text string) {
 
 // HandleLLMStart implements callbacks.Handler.
 func (t *LangChainTracer) HandleLLMStart(ctx context.Context, prompts []string) {
-	t.activeTree.SetName("llm_start").SetProjectName(t.projectName).SetRunType("llm").SetClient(t.client).SetInputs(KVMap{
-		"prompts": prompts,
-	})
+	childTree := t.activeTree.CreateChild()
 
-	if err := t.activeTree.postRun(ctx, true); err != nil {
+	childTree.
+		SetName("ChatPromptTemplate").
+		SetRunType("llm").
+		SetInputs(t.activeTree.Inputs).
+		SetOutputs(KVMap{
+			"prompts": prompts,
+		})
+
+	t.activeTree.AppendChild(childTree)
+
+	// Start the run
+	if err := childTree.postRun(ctx, true); err != nil {
 		t.logLangSmithError("llm_start", "post run", err)
+		return
+	}
+
+	// Close the run
+	if err := childTree.patchRun(ctx); err != nil {
+		t.logLangSmithError("llm_start", "patch run", err)
 		return
 	}
 }
 
 func (t *LangChainTracer) HandleLLMGenerateContentStart(ctx context.Context, ms []llms.MessageContent) {
-	fmt.Println("HandleLLMGenerateContentStart", ms)
-	t.activeTree.SetClient(t.client).SetEndTime(time.Now()).SetOutputs(KVMap{
-		"ms": ms, // fixme: validate these fields in the generate content
+	childTree := t.activeTree.CreateChild()
+
+	childTree.SetName("LLMGenerateContent").SetRunType("llm").SetInputs(KVMap{
+		"msg_content": ms,
 	})
 
-	if err := t.activeTree.patchRun(ctx); err != nil {
-		t.logLangSmithError("handle_llm_generate_content_start", "patch run", err)
+	t.activeTree.AppendChild(childTree)
+
+	// Start the run
+	if err := childTree.postRun(ctx, true); err != nil {
+		t.logLangSmithError("llm_start", "post run", err)
 		return
 	}
 }
 
 func (t *LangChainTracer) HandleLLMGenerateContentEnd(ctx context.Context, res *llms.ContentResponse) {
-	fmt.Println("HandleLLMGenerateContentEnd", res)
+	childTree := t.activeTree.GetChild("LLMGenerateContent")
+
+	childTree.SetName("LLMGenerateContent").SetRunType("llm").SetInputs(KVMap{
+		"res_content": res,
+	})
+
+	// Close the run
+	if err := childTree.patchRun(ctx); err != nil {
+		t.logLangSmithError("llm_start", "post run", err)
+		return
+	}
 }
 
 // HandleLLMError implements callbacks.Handler.
@@ -92,10 +121,12 @@ func (t *LangChainTracer) HandleLLMError(ctx context.Context, err error) {
 
 // HandleChainStart implements callbacks.Handler.
 func (t *LangChainTracer) HandleChainStart(ctx context.Context, inputs map[string]any) {
-	fmt.Println("HandleChainStart")
-	t.activeTree = NewRunTree().SetName("chain_start").SetClient(t.client).SetProjectName(t.projectName).SetRunType("llm").SetInputs(KVMap{
-		"inputs": inputs,
-	})
+	t.activeTree = NewRunTree().
+		SetName("RunnableSequence").
+		SetClient(t.client).
+		SetProjectName(t.projectName).
+		SetRunType("llm").
+		SetInputs(inputs)
 
 	if err := t.activeTree.postRun(ctx, true); err != nil {
 		t.logLangSmithError("handle_chain_start", "post run", err)
@@ -105,13 +136,14 @@ func (t *LangChainTracer) HandleChainStart(ctx context.Context, inputs map[strin
 
 // HandleChainEnd implements callbacks.Handler.
 func (t *LangChainTracer) HandleChainEnd(ctx context.Context, outputs map[string]any) {
-	fmt.Println("HandleChainEnd", outputs)
-	t.activeTree = NewRunTree().SetName("chain_end").SetClient(t.client).SetProjectName(t.projectName).SetRunType("llm").SetOutputs(KVMap{
-		"output": outputs,
-	}).SetEndTime(time.Now())
+	t.activeTree.
+		SetClient(t.client).
+		SetProjectName(t.projectName).
+		SetRunType("llm").
+		SetOutputs(outputs).
+		SetEndTime(time.Now())
 
-	fmt.Println(t.activeTree == nil)
-	if err := t.activeTree.postRun(ctx, true); err != nil { // FIXME: this should be a patchRun instead to update the same uuid that started the chain
+	if err := t.activeTree.patchRun(ctx); err != nil {
 		t.logLangSmithError("handle_chain_end", "patch run", err)
 		return
 	}
@@ -121,7 +153,14 @@ func (t *LangChainTracer) HandleChainEnd(ctx context.Context, outputs map[string
 
 // HandleChainError implements callbacks.Handler.
 func (t *LangChainTracer) HandleChainError(ctx context.Context, err error) {
-	fmt.Println("HandleChainError", err)
+	t.activeTree.SetError(err.Error()).SetEndTime(time.Now())
+
+	if err := t.activeTree.patchRun(ctx); err != nil {
+		t.logLangSmithError("handle_chain_error", "patch run", err)
+		return
+	}
+
+	t.activeTree = nil
 }
 
 // HandleToolStart implements callbacks.Handler.

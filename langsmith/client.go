@@ -77,7 +77,6 @@ func (c *Client) UpdateRun(ctx context.Context, runID string, run *RunUpdate) er
 		return ErrInvalidUUID
 	}
 
-	fmt.Println("client", c == nil)
 	if c.hideInputs {
 		run.Inputs = nil
 	}

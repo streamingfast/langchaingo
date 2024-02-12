@@ -121,16 +121,25 @@ func (t *RunTree) SetRunType(runType string) *RunTree {
 }
 
 func (r *RunTree) CreateChild() *RunTree {
-	child := NewRunTree().
+	return NewRunTree().
 		SetParent(r).
 		SetProjectName(r.ProjectName).
 		SetClient(r.Client).
 		SetExecutionOrder(r.ChildExecutionOrder + 1).
 		SetChildExecutionOrder(r.ChildExecutionOrder + 1)
+}
 
+func (r *RunTree) AppendChild(child *RunTree) {
 	r.ChildRuns = append(r.ChildRuns, child)
+}
 
-	return child
+func (t *RunTree) GetChild(childName string) *RunTree {
+	for _, child := range t.ChildRuns {
+		if child.Name == childName {
+			return child
+		}
+	}
+	return nil
 }
 
 func (r *RunTree) End(outputs KVMap, error string, endTime time.Time) {
@@ -202,6 +211,7 @@ func (r *RunTree) convertToCreate(excludeChildRuns bool) (*RunCreate, error) {
 	return persistedRun, nil
 }
 
+// postRun will start the run or the child run
 func (r *RunTree) postRun(ctx context.Context, excludeChildRuns bool) error {
 	runCreate, err := r.convertToCreate(true)
 	if err != nil {
@@ -214,7 +224,6 @@ func (r *RunTree) postRun(ctx context.Context, excludeChildRuns bool) error {
 	}
 
 	if !excludeChildRuns {
-		// FIXME: There was a deprecation warning here in the TypeScript codebase, not sure what's the point of it so removed it for now
 		for _, childRun := range r.ChildRuns {
 			err = childRun.postRun(ctx, excludeChildRuns)
 			if err != nil {
@@ -226,6 +235,8 @@ func (r *RunTree) postRun(ctx context.Context, excludeChildRuns bool) error {
 	return nil
 }
 
+// patchRun will close the run or the child run of a run tree that
+// was started with the postRun
 func (r *RunTree) patchRun(ctx context.Context) error {
 	var parentRunID *string
 	if r.ParentRun != nil {
@@ -241,10 +252,12 @@ func (r *RunTree) patchRun(ctx context.Context) error {
 		Extra:              r.Extra,
 		Events:             r.Events,
 	}
+
 	err := r.Client.UpdateRun(ctx, r.ID, runUpdate)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 

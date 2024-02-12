@@ -40,7 +40,7 @@ func NewLLMChain(llm llms.Model, prompt prompts.FormatPrompter, opts ...ChainCal
 		OutputParser:     outputparser.NewSimple(),
 		Memory:           memory.NewSimple(),
 		OutputKey:        _llmChainDefaultOutputKey,
-		CallbacksHandler: opt.CallbackHandler, //FIXME: this seems to overwrite the callback called in the Call function
+		CallbacksHandler: opt.CallbackHandler,
 	}
 
 	return chain
@@ -65,18 +65,9 @@ func (c LLMChain) Call(ctx context.Context, values map[string]any, options ...Ch
 	}
 
 	prompt := promptValue.String()
-
-	// cbHandler.HandleLLMGenerateContentStart(ctx, []llms.MessageContent{
-	// 	{
-	// 		Role:  schema.ChatMessageTypeHuman,
-	// 		Parts: []llms.ContentPart{llms.TextContent{Text: prompt}},
-	// 	},
-	// })
-	// defer func() {
-	// 	cbHandler.HandleLLMGenerateContentEnd(ctx, &llms.ContentResponse{
-	// 		Choices: result.Choices,
-	// 	})
-	// }()
+	if cbHandler != nil {
+		cbHandler.HandleLLMStart(ctx, []string{prompt})
+	}
 
 	result, err := llms.GenerateFromSinglePrompt(ctx, c.LLM, prompt, getLLMCallOptions(options...)...)
 	if err != nil {
