@@ -2,8 +2,6 @@ module github.com/tmc/langchaingo
 
 go 1.21
 
-toolchain go1.21.4
-
 require (
 	github.com/google/uuid v1.4.0
 	github.com/stretchr/testify v1.8.4
