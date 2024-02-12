@@ -125,7 +125,7 @@ func (t *LangChainTracer) HandleChainStart(ctx context.Context, inputs map[strin
 		SetName("RunnableSequence").
 		SetClient(t.client).
 		SetProjectName(t.projectName).
-		SetRunType("llm").
+		SetRunType("chain").
 		SetInputs(inputs)
 
 	if err := t.activeTree.postRun(ctx, true); err != nil {
@@ -139,7 +139,7 @@ func (t *LangChainTracer) HandleChainEnd(ctx context.Context, outputs map[string
 	t.activeTree.
 		SetClient(t.client).
 		SetProjectName(t.projectName).
-		SetRunType("llm").
+		SetRunType("chain").
 		SetOutputs(outputs).
 		SetEndTime(time.Now())
 
