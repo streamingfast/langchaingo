@@ -5,6 +5,7 @@ import (
 
 	"github.com/tmc/langchaingo/callbacks"
 	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/formatter"
 )
 
 // ChainCallOption is a function that can be used to modify the behavior of the Call function.
@@ -36,6 +37,15 @@ type chainCallOption struct {
 	RepetitionPenalty float64
 	// CallbackHandler is the callback handler for Chain
 	CallbackHandler callbacks.Handler
+	// Function defitions to include in the request.
+	Functions []llms.FunctionDefinition `json:"functions"`
+	// FunctionCallBehavior is the behavior to use when calling functions.
+	//
+	// If a specific function should be invoked, use the format:
+	// `{"name": "my_function"}`
+	FunctionCallBehavior llms.FunctionCallBehavior `json:"function_call"`
+	// The format of the response.
+	ResponseFormat *formatter.ResponseFormat `json:"response_format,omitempty"`
 }
 
 // WithModel is an option for LLM.Call.
@@ -129,6 +139,26 @@ func WithCallback(callbackHandler callbacks.Handler) ChainCallOption {
 	}
 }
 
+// WithFunctions allows setting a custom FunctionDefinition.
+func WithFunctions(functions ...llms.FunctionDefinition) ChainCallOption {
+	return func(opts *chainCallOption) {
+		opts.Functions = functions
+	}
+}
+
+// WithFunctionCallBehavior allows setting a custom FunctionCallBehavior.
+func WithFunctionCallBehavior(behavior llms.FunctionCallBehavior) ChainCallOption {
+	return func(opts *chainCallOption) {
+		opts.FunctionCallBehavior = behavior
+	}
+}
+
+func WithResponseFormat(responseFormat *formatter.ResponseFormat) ChainCallOption {
+	return func(opts *chainCallOption) {
+		opts.ResponseFormat = responseFormat
+	}
+}
+
 func getLLMCallOptions(options ...ChainCallOption) []llms.CallOption {
 	opts := &chainCallOption{}
 	for _, option := range options {
@@ -154,6 +184,9 @@ func getLLMCallOptions(options ...ChainCallOption) []llms.CallOption {
 		llms.WithMinLength(opts.MinLength),
 		llms.WithMaxLength(opts.MaxLength),
 		llms.WithRepetitionPenalty(opts.RepetitionPenalty),
+		llms.WithFunctions(opts.Functions),
+		llms.WithFunctionCallBehavior(opts.FunctionCallBehavior),
+		llms.WithResponseFormat(opts.ResponseFormat),
 	}
 
 	return chainCallOption

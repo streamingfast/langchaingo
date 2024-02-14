@@ -29,11 +29,14 @@ var (
 )
 
 // NewLLMChain creates a new LLMChain with an LLM and a prompt.
+// Only the CallbackHandler option is used for the LLMChain.
 func NewLLMChain(llm llms.Model, prompt prompts.FormatPrompter, opts ...ChainCallOption) *LLMChain {
 	opt := &chainCallOption{}
+
 	for _, o := range opts {
 		o(opt)
 	}
+
 	chain := &LLMChain{
 		Prompt:           prompt,
 		LLM:              llm,

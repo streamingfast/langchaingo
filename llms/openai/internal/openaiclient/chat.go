@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/formatter"
 )
 
 const (
@@ -44,6 +45,8 @@ type ChatRequest struct {
 	// StreamingFunc is a function to be called for each chunk of a streaming response.
 	// Return an error to stop streaming early.
 	StreamingFunc func(ctx context.Context, chunk []byte) error `json:"-"`
+	// An object specifying the format that the model must output. Compatible with GPT-4 Turbo and all GPT-3.5 Turbo models newer than gpt-3.5-turbo-1106.
+	ResponseFormat *formatter.ResponseFormat `json:"response_format,omitempty"`
 }
 
 // ChatMessage is a message in a chat request.
@@ -182,8 +185,8 @@ func (c *Client) createChat(ctx context.Context, payload *ChatRequest) (*ChatRes
 	if payload.StreamingFunc != nil {
 		payload.Stream = true
 	}
-	// Build request payload
 
+	// Build request payload
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -201,11 +204,16 @@ func (c *Client) createChat(ctx context.Context, payload *ChatRequest) (*ChatRes
 
 	c.setHeaders(req)
 
+	if payload.ResponseFormat.Type == "json_object" {
+		req.Header.Set("Accept", "application/json")
+	}
+
 	// Send request
 	r, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
+
 	defer r.Body.Close()
 
 	if r.StatusCode != http.StatusOK {

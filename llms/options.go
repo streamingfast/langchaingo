@@ -1,6 +1,10 @@
 package llms
 
-import "context"
+import (
+	"context"
+
+	"github.com/tmc/langchaingo/llms/formatter"
+)
 
 // CallOption is a function that configures a CallOptions.
 type CallOption func(*CallOptions)
@@ -47,6 +51,8 @@ type CallOptions struct {
 	// If a specific function should be invoked, use the format:
 	// `{"name": "my_function"}`
 	FunctionCallBehavior FunctionCallBehavior `json:"function_call"`
+	// The format of the response.
+	ResponseFormat *formatter.ResponseFormat `json:"response_format"`
 }
 
 // FunctionDefinition is a definition of a function that can be called by the model.
@@ -193,5 +199,11 @@ func WithFunctionCallBehavior(behavior FunctionCallBehavior) CallOption {
 func WithFunctions(functions []FunctionDefinition) CallOption {
 	return func(o *CallOptions) {
 		o.Functions = functions
+	}
+}
+
+func WithResponseFormat(responseFormat *formatter.ResponseFormat) CallOption {
+	return func(opts *CallOptions) {
+		opts.ResponseFormat = responseFormat
 	}
 }

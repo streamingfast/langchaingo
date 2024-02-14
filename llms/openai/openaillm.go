@@ -88,6 +88,7 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 		FrequencyPenalty:     opts.FrequencyPenalty,
 		PresencePenalty:      opts.PresencePenalty,
 		FunctionCallBehavior: openaiclient.FunctionCallBehavior(opts.FunctionCallBehavior),
+		ResponseFormat:       opts.ResponseFormat,
 	}
 
 	for _, fn := range opts.Functions {
@@ -97,6 +98,7 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 			Parameters:  fn.Parameters,
 		})
 	}
+
 	result, err := o.client.CreateChat(ctx, req)
 	if err != nil {
 		return nil, err
