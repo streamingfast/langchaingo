@@ -33,3 +33,9 @@ func WithExampleID(exampleID string) LangChainTracerOption {
 		t.exampleID = exampleID
 	})
 }
+
+func WithApiKey(apiKey string) LangChainTracerOption {
+	return langChainTracerOptionFunc(func(t *LangChainTracer) {
+		t.client.apiKey = apiKey
+	})
+}
