@@ -52,3 +52,18 @@ func GenerateFromSinglePrompt(ctx context.Context, llm Model, prompt string, opt
 	c1 := choices[0]
 	return c1.Content, nil
 }
+
+func GenerateFromMessageContents(ctx context.Context, llm Model, msg []MessageContent, options ...CallOption) (string, error) {
+	resp, err := llm.GenerateContent(ctx, msg, options...)
+	if err != nil {
+		return "", err
+	}
+
+	choices := resp.Choices
+	if len(choices) < 1 {
+		return "", errors.New("empty response from model")
+	}
+
+	c1 := choices[0]
+	return c1.Content, nil
+}

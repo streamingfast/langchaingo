@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/tmc/langchaingo/callbacks"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/schema"
@@ -16,18 +17,18 @@ var _ callbacks.Handler = (*LangChainTracer)(nil)
 type LangChainTracer struct {
 	name        string
 	projectName string
-	exampleID   string
 	client      *Client
 
+	runId      string
 	activeTree *RunTree
 }
 
-func NewLangChainTracer(opts ...LangChainTracerOption) (*LangChainTracer, error) {
+func NewTracer(opts ...LangChainTracerOption) (*LangChainTracer, error) {
 	tracer := &LangChainTracer{
 		name:        "langchain_tracer",
 		projectName: envOr(os.Getenv("LANGCHAIN_PROJECT"), "default"),
-		exampleID:   "",
 		client:      nil,
+		runId:       uuid.New().String(),
 	}
 
 	for _, opt := range opts {
@@ -46,7 +47,11 @@ func NewLangChainTracer(opts ...LangChainTracerOption) (*LangChainTracer, error)
 }
 
 func (t *LangChainTracer) GetRunID() string {
-	return t.activeTree.ID
+	return t.runId
+}
+
+func (t *LangChainTracer) resetActiveTree() {
+	t.activeTree = nil
 }
 
 // HandleText implements callbacks.Handler.
@@ -125,7 +130,7 @@ func (t *LangChainTracer) HandleLLMError(ctx context.Context, err error) {
 
 // HandleChainStart implements callbacks.Handler.
 func (t *LangChainTracer) HandleChainStart(ctx context.Context, inputs map[string]any) {
-	t.activeTree = NewRunTree().
+	t.activeTree = NewRunTree(t.runId).
 		SetName("RunnableSequence").
 		SetClient(t.client).
 		SetProjectName(t.projectName).
@@ -149,7 +154,7 @@ func (t *LangChainTracer) HandleChainEnd(ctx context.Context, outputs map[string
 		return
 	}
 
-	t.activeTree = nil
+	t.resetActiveTree()
 }
 
 // HandleChainError implements callbacks.Handler.

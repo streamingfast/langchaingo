@@ -85,6 +85,39 @@ func (c LLMChain) Call(ctx context.Context, values map[string]any, options ...Ch
 	return map[string]any{c.OutputKey: finalOutput}, nil
 }
 
+func (c LLMChain) CallWithMultiplePrompts(ctx context.Context, values map[string]any, options ...ChainCallOption) (outputs map[string]any, err error) {
+	cbHandler := GetChainCallCallbackHandler(options)
+	if cbHandler != nil {
+		cbHandler.HandleChainStart(ctx, values)
+		defer func() {
+			cbHandler.HandleChainEnd(ctx, outputs)
+		}()
+	}
+
+	promptValue, err := c.Prompt.FormatPrompt(values)
+	if err != nil {
+		return nil, err
+	}
+
+	prompt := promptValue.Messages()
+
+	if cbHandler != nil {
+		cbHandler.HandleLLMStart(ctx, []string{promptValue.String()})
+	}
+
+	result, err := llms.GenerateFromMessageContents(ctx, c.LLM, ToMessageContent(prompt), getLLMCallOptions(options...)...)
+	if err != nil {
+		return nil, err
+	}
+
+	finalOutput, err := c.OutputParser.ParseWithPrompt(result, promptValue)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]any{c.OutputKey: finalOutput}, nil
+}
+
 // GetMemory returns the memory.
 func (c LLMChain) GetMemory() schema.Memory { //nolint:ireturn
 	return c.Memory //nolint:ireturn
@@ -102,4 +135,19 @@ func (c LLMChain) GetInputKeys() []string {
 // GetOutputKeys returns the output keys the chain will return.
 func (c LLMChain) GetOutputKeys() []string {
 	return []string{c.OutputKey}
+}
+
+// Convert ChatMessage to MessageContent.
+// Each ChatMessage is directly converted to a MessageContent with the same content and type.
+func ToMessageContent(chatMessages []schema.ChatMessage) []llms.MessageContent {
+	msgs := make([]llms.MessageContent, 0, len(chatMessages))
+	for _, m := range chatMessages {
+		msgs = append(msgs, llms.MessageContent{
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: m.GetContent()},
+			},
+			Role: m.GetType(),
+		})
+	}
+	return msgs
 }

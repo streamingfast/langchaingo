@@ -30,9 +30,9 @@ type RunTree struct {
 	Events              []KVMap
 }
 
-func NewRunTree() *RunTree {
+func NewRunTree(id string) *RunTree {
 	return &RunTree{
-		ID:                  uuid.New().String(),
+		ID:                  id,
 		ProjectName:         envOr("LANGCHAIN_PROJECT", "default"),
 		ExecutionOrder:      1,
 		ChildExecutionOrder: 1,
@@ -121,7 +121,7 @@ func (t *RunTree) SetRunType(runType string) *RunTree {
 }
 
 func (r *RunTree) CreateChild() *RunTree {
-	return NewRunTree().
+	return NewRunTree(uuid.New().String()).
 		SetParent(r).
 		SetProjectName(r.ProjectName).
 		SetClient(r.Client).

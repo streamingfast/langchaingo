@@ -192,6 +192,8 @@ func (c *Client) createChat(ctx context.Context, payload *ChatRequest) (*ChatRes
 		return nil, err
 	}
 
+	fmt.Println("payloadBytes", string(payloadBytes))
+
 	// Build request
 	body := bytes.NewReader(payloadBytes)
 	if c.baseURL == "" {

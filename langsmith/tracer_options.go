@@ -28,9 +28,9 @@ func WithProjectName(projectName string) LangChainTracerOption {
 	})
 }
 
-func WithExampleID(exampleID string) LangChainTracerOption {
+func WithRunId(runId string) LangChainTracerOption {
 	return langChainTracerOptionFunc(func(t *LangChainTracer) {
-		t.exampleID = exampleID
+		t.runId = runId
 	})
 }
 
