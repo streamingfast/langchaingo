@@ -45,6 +45,10 @@ func NewLangChainTracer(opts ...LangChainTracerOption) (*LangChainTracer, error)
 	return tracer, nil
 }
 
+func (t *LangChainTracer) GetRunID() string {
+	return t.activeTree.ID
+}
+
 // HandleText implements callbacks.Handler.
 func (t *LangChainTracer) HandleText(ctx context.Context, text string) {
 	fmt.Println("HandleText", text)
