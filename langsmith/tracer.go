@@ -26,7 +26,7 @@ type LangChainTracer struct {
 func NewTracer(opts ...LangChainTracerOption) (*LangChainTracer, error) {
 	tracer := &LangChainTracer{
 		name:        "langchain_tracer",
-		projectName: envOr(os.Getenv("LANGCHAIN_PROJECT"), "default"),
+		projectName: "default",
 		client:      nil,
 		runId:       uuid.New().String(),
 	}
