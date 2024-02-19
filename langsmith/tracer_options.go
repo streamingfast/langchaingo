@@ -33,9 +33,3 @@ func WithRunId(runId string) LangChainTracerOption {
 		t.runId = runId
 	})
 }
-
-func WithApiKey(apiKey string) LangChainTracerOption {
-	return langChainTracerOptionFunc(func(t *LangChainTracer) {
-		t.client.apiKey = apiKey
-	})
-}
