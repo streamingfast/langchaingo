@@ -33,3 +33,9 @@ func WithRunId(runId string) LangChainTracerOption {
 		t.runId = runId
 	})
 }
+
+func WithExtras(extras KVMap) LangChainTracerOption {
+	return langChainTracerOptionFunc(func(t *LangChainTracer) {
+		t.extras = extras
+	})
+}

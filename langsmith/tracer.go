@@ -21,6 +21,7 @@ type LangChainTracer struct {
 
 	runId      string
 	activeTree *RunTree
+	extras     KVMap
 }
 
 func NewTracer(opts ...LangChainTracerOption) (*LangChainTracer, error) {
@@ -135,7 +136,8 @@ func (t *LangChainTracer) HandleChainStart(ctx context.Context, inputs map[strin
 		SetClient(t.client).
 		SetProjectName(t.projectName).
 		SetRunType("chain").
-		SetInputs(inputs)
+		SetInputs(inputs).
+		SetExtra(t.extras)
 
 	if err := t.activeTree.postRun(ctx, true); err != nil {
 		t.logLangSmithError("handle_chain_start", "post run", err)
