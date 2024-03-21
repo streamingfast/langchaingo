@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/formatter"
 )
 
 const (
@@ -25,7 +24,7 @@ var ErrContentExclusive = errors.New("only one of Content / MultiContent allowed
 type ChatRequest struct {
 	Model            string         `json:"model"`
 	Messages         []*ChatMessage `json:"messages"`
-	Temperature      float64        `json:"temperature,omitempty"`
+	Temperature      float64        `json:"temperature"`
 	TopP             float64        `json:"top_p,omitempty"`
 	MaxTokens        int            `json:"max_tokens,omitempty"`
 	N                int            `json:"n,omitempty"`
@@ -33,6 +32,8 @@ type ChatRequest struct {
 	Stream           bool           `json:"stream,omitempty"`
 	FrequencyPenalty float64        `json:"frequency_penalty,omitempty"`
 	PresencePenalty  float64        `json:"presence_penalty,omitempty"`
+
+	ResponseFormat *ResponseFormat `json:"response_format,omitempty"`
 
 	// Function definitions to include in the request.
 	Functions []FunctionDefinition `json:"functions,omitempty"`
@@ -45,8 +46,11 @@ type ChatRequest struct {
 	// StreamingFunc is a function to be called for each chunk of a streaming response.
 	// Return an error to stop streaming early.
 	StreamingFunc func(ctx context.Context, chunk []byte) error `json:"-"`
-	// An object specifying the format that the model must output. Compatible with GPT-4 Turbo and all GPT-3.5 Turbo models newer than gpt-3.5-turbo-1106.
-	ResponseFormat *formatter.ResponseFormat `json:"response_format,omitempty"`
+}
+
+// ResponseFormat is the format of the response.
+type ResponseFormat struct {
+	Type string `json:"type"`
 }
 
 // ChatMessage is a message in a chat request.

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 )
 
 const (
-	defaultBaseURL = "https://api.anthropic.com/v1"
+	DefaultBaseURL = "https://api.anthropic.com/v1"
 )
 
 // ErrEmptyResponse is returned when the Anthropic API returns an empty response.
@@ -40,12 +41,12 @@ func WithHTTPClient(client Doer) Option {
 }
 
 // New returns a new Anthropic client.
-func New(token string, model string, opts ...Option) (*Client, error) {
+func New(token string, model string, baseURL string, httpClient Doer, opts ...Option) (*Client, error) {
 	c := &Client{
 		Model:      model,
 		token:      token,
-		baseURL:    defaultBaseURL,
-		httpClient: http.DefaultClient,
+		baseURL:    strings.TrimSuffix(baseURL, "/"),
+		httpClient: httpClient,
 	}
 
 	for _, opt := range opts {
@@ -61,7 +62,7 @@ func New(token string, model string, opts ...Option) (*Client, error) {
 type CompletionRequest struct {
 	Model       string   `json:"model"`
 	Prompt      string   `json:"prompt"`
-	Temperature float64  `json:"temperature,omitempty"`
+	Temperature float64  `json:"temperature"`
 	MaxTokens   int      `json:"max_tokens_to_sample,omitempty"`
 	StopWords   []string `json:"stop_sequences,omitempty"`
 	TopP        float64  `json:"top_p,omitempty"`

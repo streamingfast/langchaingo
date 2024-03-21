@@ -2,8 +2,6 @@ package llms
 
 import (
 	"context"
-
-	"github.com/tmc/langchaingo/llms/formatter"
 )
 
 // CallOption is a function that configures a CallOptions.
@@ -44,6 +42,9 @@ type CallOptions struct {
 	// PresencePenalty is the presence penalty for sampling.
 	PresencePenalty float64 `json:"presence_penalty"`
 
+	// JSONMode is a flag to enable JSON mode.
+	JSONMode bool `json:"json"`
+
 	// Function defitions to include in the request.
 	Functions []FunctionDefinition `json:"functions"`
 	// FunctionCallBehavior is the behavior to use when calling functions.
@@ -51,8 +52,6 @@ type CallOptions struct {
 	// If a specific function should be invoked, use the format:
 	// `{"name": "my_function"}`
 	FunctionCallBehavior FunctionCallBehavior `json:"function_call"`
-	// The format of the response.
-	ResponseFormat *formatter.ResponseFormat `json:"response_format"`
 }
 
 // FunctionDefinition is a definition of a function that can be called by the model.
@@ -202,8 +201,10 @@ func WithFunctions(functions []FunctionDefinition) CallOption {
 	}
 }
 
-func WithResponseFormat(responseFormat *formatter.ResponseFormat) CallOption {
-	return func(opts *CallOptions) {
-		opts.ResponseFormat = responseFormat
+// WithJSONMode will add an option to set the response format to JSON.
+// This is useful for models that return structured data.
+func WithJSONMode() CallOption {
+	return func(o *CallOptions) {
+		o.JSONMode = true
 	}
 }

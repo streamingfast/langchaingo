@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tmc/langchaingo/embeddings"
@@ -54,14 +53,14 @@ func WithCollectionName(name string) Option {
 // WithEmbeddingTableName is an option for specifying the embedding table name.
 func WithEmbeddingTableName(name string) Option {
 	return func(p *Store) {
-		p.embeddingTableName = tableName(name)
+		p.embeddingTableName = name
 	}
 }
 
 // WithCollectionTableName is an option for specifying the collection table name.
 func WithCollectionTableName(name string) Option {
 	return func(p *Store) {
-		p.collectionTableName = tableName(name)
+		p.collectionTableName = name
 	}
 }
 
@@ -85,6 +84,22 @@ func WithCollectionMetadata(metadata map[string]any) Option {
 func WithVectorDimensions(size int) Option {
 	return func(p *Store) {
 		p.vectorDimensions = size
+	}
+}
+
+// WithHNSWIndex is an option for specifying the HNSW index parameters.
+// See here for more details: https://github.com/pgvector/pgvector#hnsw
+//
+// m: he max number of connections per layer (16 by default)
+// efConstruction: the size of the dynamic candidate list for constructing the graph (64 by default)
+// distanceFunction: the distance function to use (l2 by default).
+func WithHNSWIndex(m int, efConstruction int, distanceFunction string) Option {
+	return func(p *Store) {
+		p.hnswIndex = &HNSWIndex{
+			m:                m,
+			efConstruction:   efConstruction,
+			distanceFunction: distanceFunction,
+		}
 	}
 }
 
@@ -113,11 +128,4 @@ func applyClientOptions(opts ...Option) (Store, error) {
 	}
 
 	return *o, nil
-}
-
-// tableName returns the table name with the schema sanitized.
-func tableName(name string) string {
-	nameParts := strings.Split(name, ".")
-
-	return pgx.Identifier(nameParts).Sanitize()
 }
