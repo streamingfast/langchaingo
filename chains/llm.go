@@ -120,7 +120,7 @@ func (c LLMChain) CallWithMultiplePrompts(ctx context.Context, values map[string
 
 // GetMemory returns the memory.
 func (c LLMChain) GetMemory() schema.Memory { //nolint:ireturn
-	return c.Memory //nolint:ireturn
+	return c.Memory //nolint:ireturn`
 }
 
 func (c LLMChain) GetCallbackHandler() callbacks.Handler { //nolint:ireturn
@@ -142,12 +142,24 @@ func (c LLMChain) GetOutputKeys() []string {
 func ToMessageContent(chatMessages []schema.ChatMessage) []llms.MessageContent {
 	msgs := make([]llms.MessageContent, 0, len(chatMessages))
 	for _, m := range chatMessages {
-		msgs = append(msgs, llms.MessageContent{
-			Parts: []llms.ContentPart{
-				llms.TextContent{Text: m.GetContent()},
-			},
-			Role: m.GetType(),
-		})
+		msgs = append(msgs, chatMessageToLLm(m))
 	}
 	return msgs
+}
+
+func chatMessageToLLm(in schema.ChatMessage) llms.MessageContent {
+	var contentPart llms.ContentPart
+	switch v := in.(type) {
+	case schema.ImageChatMessage:
+		contentPart = llms.ImageURLContent{URL: v.GetContent()}
+	default:
+		contentPart = llms.TextContent{Text: v.GetContent()}
+	}
+	return llms.MessageContent{
+		Parts: []llms.ContentPart{
+			contentPart,
+		},
+		Role: in.GetType(),
+	}
+
 }

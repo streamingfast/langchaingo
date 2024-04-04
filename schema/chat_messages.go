@@ -45,6 +45,7 @@ type Named interface {
 var (
 	_ ChatMessage = AIChatMessage{}
 	_ ChatMessage = HumanChatMessage{}
+	_ ChatMessage = ImageChatMessage{}
 	_ ChatMessage = SystemChatMessage{}
 	_ ChatMessage = GenericChatMessage{}
 	_ ChatMessage = FunctionChatMessage{}
@@ -74,6 +75,17 @@ type HumanChatMessage struct {
 
 func (m HumanChatMessage) GetType() ChatMessageType { return ChatMessageTypeHuman }
 func (m HumanChatMessage) GetContent() string       { return m.Content }
+
+// ImageChatMessage is a image url sent by a human.
+type ImageChatMessage struct {
+	Content string
+}
+
+func (m ImageChatMessage) GetType() ChatMessageType { return ChatMessageTypeHuman }
+
+// URL of image
+// data:image/jpeg;base64,{base64_image}
+func (m ImageChatMessage) GetContent() string { return m.Content }
 
 // SystemChatMessage is a chat message representing information that should be instructions to the AI system.
 type SystemChatMessage struct {
