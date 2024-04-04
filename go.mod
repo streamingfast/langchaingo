@@ -1,6 +1,6 @@
 module github.com/tmc/langchaingo
 
-go 1.21
+go 1.22
 
 require (
 	github.com/google/uuid v1.6.0
@@ -174,6 +174,7 @@ require (
 	cloud.google.com/go/aiplatform v1.58.0
 	cloud.google.com/go/vertexai v0.6.0
 	github.com/AssemblyAI/assemblyai-go-sdk v1.3.0
+	github.com/Code-Hex/go-generics-cache v1.3.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/amikos-tech/chroma-go v0.1.2
@@ -181,6 +182,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.4
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.7.1
 	github.com/cohere-ai/tokenizer v1.1.2
+	github.com/gage-technologies/mistral-go v1.0.0
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/gocolly/colly v1.2.0
