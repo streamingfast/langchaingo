@@ -3,7 +3,6 @@ package langsmith
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +21,7 @@ type LangChainTracer struct {
 	runId      string
 	activeTree *RunTree
 	extras     KVMap
+	logger     LeveledLoggerInterface
 }
 
 func NewTracer(opts ...LangChainTracerOption) (*LangChainTracer, error) {
@@ -30,6 +30,7 @@ func NewTracer(opts ...LangChainTracerOption) (*LangChainTracer, error) {
 		projectName: "default",
 		client:      nil,
 		runId:       uuid.New().String(),
+		logger:      &NopLogger{},
 	}
 
 	for _, opt := range opts {
@@ -57,7 +58,6 @@ func (t *LangChainTracer) resetActiveTree() {
 
 // HandleText implements callbacks.Handler.
 func (t *LangChainTracer) HandleText(ctx context.Context, text string) {
-	fmt.Println("HandleText", text)
 }
 
 // HandleLLMStart implements callbacks.Handler.
@@ -173,37 +173,38 @@ func (t *LangChainTracer) HandleChainError(ctx context.Context, err error) {
 
 // HandleToolStart implements callbacks.Handler.
 func (t *LangChainTracer) HandleToolStart(ctx context.Context, input string) {
-	fmt.Println("HandleToolStart", input)
+	t.logger.Debugf("handle tool start: input: %s", input)
 }
 
 // HandleToolEnd implements callbacks.Handler.
 func (t *LangChainTracer) HandleToolEnd(ctx context.Context, output string) {
-	fmt.Println("HandleToolEnd", output)
+	t.logger.Debugf("handle tool end: output: %s", output)
 }
 
 // HandleToolError implements callbacks.Handler.
 func (t *LangChainTracer) HandleToolError(ctx context.Context, err error) {
-	fmt.Println("HandleToolError", err)
+	t.logger.Warnf("handle tool error: %s", err)
 }
 
 // HandleAgentAction implements callbacks.Handler.
 func (t *LangChainTracer) HandleAgentAction(ctx context.Context, action schema.AgentAction) {
-	fmt.Println("HandleAgentAction", action)
+	t.logger.Debugf("handle agent action, action: %v", action)
 }
 
 // HandleAgentFinish implements callbacks.Handler.
 func (t *LangChainTracer) HandleAgentFinish(ctx context.Context, finish schema.AgentFinish) {
-	fmt.Println("HandleAgentFinish", finish)
+	t.logger.Debugf("handle agent finish, finish: %v", finish)
+
 }
 
 // HandleRetrieverStart implements callbacks.Handler.
 func (t *LangChainTracer) HandleRetrieverStart(ctx context.Context, query string) {
-	fmt.Println("HandleRetrieverStart", query)
+	t.logger.Debugf("handle retriever start, query: %s, documents: %v", query)
 }
 
 // HandleRetrieverEnd implements callbacks.Handler.
 func (t *LangChainTracer) HandleRetrieverEnd(ctx context.Context, query string, documents []schema.Document) {
-	fmt.Println("HandleRetrieverEnd", query, documents)
+	t.logger.Debugf("handle retriever end, query: %s, documents: %v", query, documents)
 }
 
 // HandleStreamingFunc implements callbacks.Handler.
@@ -212,5 +213,5 @@ func (t *LangChainTracer) HandleStreamingFunc(ctx context.Context, chunk []byte)
 }
 
 func (t *LangChainTracer) logLangSmithError(handlerName string, tag string, err error) {
-	fmt.Fprintf(os.Stderr, "We were not able to %s to LangSmith server via handler %q: %s", handlerName, tag, err)
+	t.logger.Debugf("we were not able to %s to LangSmith server via handler %q: %s", handlerName, tag, err)
 }

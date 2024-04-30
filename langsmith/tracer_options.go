@@ -16,6 +16,12 @@ func WithClient(client *Client) LangChainTracerOption {
 	})
 }
 
+func WithLogger(logger LeveledLoggerInterface) LangChainTracerOption {
+	return langChainTracerOptionFunc(func(t *LangChainTracer) {
+		t.logger = logger
+	})
+}
+
 func WithName(name string) LangChainTracerOption {
 	return langChainTracerOptionFunc(func(t *LangChainTracer) {
 		t.name = name
