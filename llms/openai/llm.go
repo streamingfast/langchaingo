@@ -38,9 +38,6 @@ func newClient(opts ...Option) (*options, *openaiclient.Client, error) {
 		if options.model == "" {
 			return options, nil, ErrMissingAzureModel
 		}
-		if options.embeddingModel == "" {
-			return options, nil, ErrMissingAzureEmbeddingModel
-		}
 	}
 
 	if len(options.token) == 0 {
