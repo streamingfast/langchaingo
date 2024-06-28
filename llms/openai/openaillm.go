@@ -7,7 +7,6 @@ import (
 	"github.com/tmc/langchaingo/callbacks"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai/internal/openaiclient"
-	"github.com/tmc/langchaingo/schema"
 )
 
 type ChatMessage = openaiclient.ChatMessage
@@ -59,17 +58,17 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 	for _, mc := range messages {
 		msg := &ChatMessage{MultiContent: mc.Parts}
 		switch mc.Role {
-		case schema.ChatMessageTypeSystem:
+		case llms.ChatMessageTypeSystem:
 			msg.Role = RoleSystem
-		case schema.ChatMessageTypeAI:
+		case llms.ChatMessageTypeAI:
 			msg.Role = RoleAssistant
-		case schema.ChatMessageTypeHuman:
+		case llms.ChatMessageTypeHuman:
 			msg.Role = RoleUser
-		case schema.ChatMessageTypeGeneric:
+		case llms.ChatMessageTypeGeneric:
 			msg.Role = RoleUser
-		case schema.ChatMessageTypeFunction:
+		case llms.ChatMessageTypeFunction:
 			msg.Role = RoleFunction
-		case schema.ChatMessageTypeTool:
+		case llms.ChatMessageTypeTool:
 			msg.Role = RoleTool
 			// Here we extract tool calls from the message and populate the ToolCalls field.
 
@@ -107,8 +106,10 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 		FrequencyPenalty: opts.FrequencyPenalty,
 		PresencePenalty:  opts.PresencePenalty,
 
+		ToolChoice:           opts.ToolChoice,
 		FunctionCallBehavior: openaiclient.FunctionCallBehavior(opts.FunctionCallBehavior),
 		Seed:                 opts.Seed,
+		Metadata:             opts.Metadata,
 	}
 
 	if opts.JSONMode {
@@ -157,27 +158,24 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 
 		// Legacy function call handling
 		if c.FinishReason == "function_call" {
-			choices[i].FuncCall = &schema.FunctionCall{
+			choices[i].FuncCall = &llms.FunctionCall{
 				Name:      c.Message.FunctionCall.Name,
 				Arguments: c.Message.FunctionCall.Arguments,
 			}
 		}
-		if c.FinishReason == "tool_calls" {
-			// TODO: we can only handle a single tool call for now, we need to evolve the API to handle multiple tool calls.
-			for _, tool := range c.Message.ToolCalls {
-				choices[i].ToolCalls = append(choices[i].ToolCalls, schema.ToolCall{
-					ID:   tool.ID,
-					Type: string(tool.Type),
-					FunctionCall: &schema.FunctionCall{
-						Name:      tool.Function.Name,
-						Arguments: tool.Function.Arguments,
-					},
-				})
-			}
-			// populate legacy single-function call field for backwards compatibility
-			if len(choices[i].ToolCalls) > 0 {
-				choices[i].FuncCall = choices[i].ToolCalls[0].FunctionCall
-			}
+		for _, tool := range c.Message.ToolCalls {
+			choices[i].ToolCalls = append(choices[i].ToolCalls, llms.ToolCall{
+				ID:   tool.ID,
+				Type: string(tool.Type),
+				FunctionCall: &llms.FunctionCall{
+					Name:      tool.Function.Name,
+					Arguments: tool.Function.Arguments,
+				},
+			})
+		}
+		// populate legacy single-function call field for backwards compatibility
+		if len(choices[i].ToolCalls) > 0 {
+			choices[i].FuncCall = choices[i].ToolCalls[0].FunctionCall
 		}
 	}
 	response := &llms.ContentResponse{Choices: choices}
@@ -191,10 +189,10 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 func (o *LLM) CreateEmbedding(ctx context.Context, inputTexts []string) ([][]float32, error) {
 	embeddings, err := o.client.CreateEmbedding(ctx, &openaiclient.EmbeddingRequest{
 		Input: inputTexts,
-		Model: o.client.Model,
+		Model: o.client.EmbeddingModel,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create openai embeddings: %w", err)
 	}
 	if len(embeddings) == 0 {
 		return nil, ErrEmptyResponse
