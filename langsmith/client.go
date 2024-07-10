@@ -28,7 +28,7 @@ type Client struct {
 func NewClient(options ...ClientOption) (*Client, error) {
 	c := &Client{
 		apiKey:      os.Getenv("LANGCHAIN_API_KEY"),
-		apiURL:      envOr("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com"),
+		apiURL:      envOr("LANGCHAIN_ENDPOINT", ""),
 		hideInputs:  envOr("LANGCHAIN_HIDE_INPUTS", "false") == "true",
 		hideOutputs: envOr("LANGCHAIN_HIDE_OUTPUTS", "false") == "true",
 		webURL:      nil,
@@ -46,7 +46,7 @@ func NewClient(options ...ClientOption) (*Client, error) {
 	c.apiURL = strings.TrimSuffix(c.apiURL, "/")
 
 	// Validation(s)
-	if len(c.apiKey) == 0 {
+	if len(c.apiKey) == 0 && len(c.apiURL) > 0 {
 		return nil, ErrMissingAPIKey
 	}
 
