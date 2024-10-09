@@ -139,7 +139,7 @@ func (c LLMChain) GetOutputKeys() []string {
 
 // Convert ChatMessage to MessageContent.
 // Each ChatMessage is directly converted to a MessageContent with the same content and type.
-func ToMessageContent(chatMessages []schema.ChatMessage) []llms.MessageContent {
+func ToMessageContent(chatMessages []llms.ChatMessage) []llms.MessageContent {
 	msgs := make([]llms.MessageContent, 0, len(chatMessages))
 	for _, m := range chatMessages {
 		msgs = append(msgs, chatMessageToLLm(m))
@@ -147,10 +147,10 @@ func ToMessageContent(chatMessages []schema.ChatMessage) []llms.MessageContent {
 	return msgs
 }
 
-func chatMessageToLLm(in schema.ChatMessage) llms.MessageContent {
+func chatMessageToLLm(in llms.ChatMessage) llms.MessageContent {
 	var contentPart llms.ContentPart
 	switch v := in.(type) {
-	case schema.ImageChatMessage:
+	case llms.ImageChatMessage:
 		contentPart = llms.ImageURLContent{URL: v.GetContent()}
 	default:
 		contentPart = llms.TextContent{Text: v.GetContent()}

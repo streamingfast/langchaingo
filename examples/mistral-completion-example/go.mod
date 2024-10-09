@@ -1,12 +1,10 @@
 module github.com/tmc/langchaingo/examples/mistral-completion-example
 
-go 1.22
+go 1.22.0
 
 toolchain go1.22.1
 
-replace github.com/tmc/langchaingo => ../../
-
-require github.com/tmc/langchaingo v0.0.0-00010101000000-000000000000
+require github.com/tmc/langchaingo v0.1.13-pre.0
 
 require (
 	github.com/dlclark/regexp2 v1.10.0 // indirect
