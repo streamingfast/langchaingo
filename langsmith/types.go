@@ -29,12 +29,13 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-type inputs []input
-type input struct {
-	Role    string             `json:"role"`
-	Content []llms.ContentPart `json:"content"`
-}
-
+type (
+	inputs []input
+	input  struct {
+		Role    string             `json:"role"`
+		Content []llms.ContentPart `json:"content"`
+	}
+)
 
 func inputsFromMessages(ms []llms.MessageContent) inputs {
 	inputs := make(inputs, len(ms))
