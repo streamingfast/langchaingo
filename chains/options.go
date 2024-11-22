@@ -19,49 +19,40 @@ type ChainCallOption func(*chainCallOption)
 // These flags are hopefully a temporary backwards-compatible solution, until
 // we find a more fundamental solution for #626.
 type chainCallOption struct {
-	// Model is the model to use in an LLM call.
-	Model    string
-	modelSet bool
+	// model is the model to use in an LLM call.
+	model *string
 
-	// MaxTokens is the maximum number of tokens to generate to use in an LLM call.
-	MaxTokens    int
-	maxTokensSet bool
+	// maxTokens is the maximum number of tokens to generate to use in an LLM call.
+	maxTokens *int
 
-	// Temperature is the temperature for sampling to use in an LLM call, between 0 and 1.
-	Temperature    float64
-	temperatureSet bool
+	// temperature is the temperature for sampling to use in an LLM call, between 0 and 1.
+	temperature *float64
 
-	// StopWords is a list of words to stop on to use in an LLM call.
-	StopWords    []string
+	// stopWords is a list of words to stop on to use in an LLM call.
+	stopWords    []string
 	stopWordsSet bool
 
-	// StreamingFunc is a function to be called for each chunk of a streaming response.
+	// streamingFunc is a function to be called for each chunk of a streaming response.
 	// Return an error to stop streaming early.
-	StreamingFunc func(ctx context.Context, chunk []byte) error
+	streamingFunc func(ctx context.Context, chunk []byte) error
 
-	// TopK is the number of tokens to consider for top-k sampling in an LLM call.
-	TopK    int
-	topkSet bool
+	// topK is the number of tokens to consider for top-k sampling in an LLM call.
+	topK *int
 
-	// TopP is the cumulative probability for top-p sampling in an LLM call.
-	TopP    float64
-	toppSet bool
+	// topP is the cumulative probability for top-p sampling in an LLM call.
+	topP *float64
 
-	// Seed is a seed for deterministic sampling in an LLM call.
-	Seed    int
-	seedSet bool
+	// seed is a seed for deterministic sampling in an LLM call.
+	seed *int
 
-	// MinLength is the minimum length of the generated text in an LLM call.
-	MinLength    int
-	minLengthSet bool
+	// minLength is the minimum length of the generated text in an LLM call.
+	minLength *int
 
-	// MaxLength is the maximum length of the generated text in an LLM call.
-	MaxLength    int
-	maxLengthSet bool
+	// maxLength is the maximum length of the generated text in an LLM call.
+	maxLength *int
 
-	// RepetitionPenalty is the repetition penalty for sampling in an LLM call.
-	RepetitionPenalty    float64
-	repetitionPenaltySet bool
+	// repetitionPenalty is the repetition penalty for sampling in an LLM call.
+	repetitionPenalty *float64
 
 	// CallbackHandler is the callback handler for Chain
 	CallbackHandler callbacks.Handler
@@ -70,86 +61,77 @@ type chainCallOption struct {
 // WithModel is an option for LLM.Call.
 func WithModel(model string) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.Model = model
-		o.modelSet = true
+		o.model = &model
 	}
 }
 
 // WithMaxTokens is an option for LLM.Call.
 func WithMaxTokens(maxTokens int) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.MaxTokens = maxTokens
-		o.maxTokensSet = true
+		o.maxTokens = &maxTokens
 	}
 }
 
 // WithTemperature is an option for LLM.Call.
 func WithTemperature(temperature float64) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.Temperature = temperature
-		o.temperatureSet = true
+		o.temperature = &temperature
 	}
 }
 
 // WithStreamingFunc is an option for LLM.Call that allows streaming responses.
 func WithStreamingFunc(streamingFunc func(ctx context.Context, chunk []byte) error) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.StreamingFunc = streamingFunc
+		o.streamingFunc = streamingFunc
 	}
 }
 
 // WithTopK will add an option to use top-k sampling for LLM.Call.
 func WithTopK(topK int) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.TopK = topK
-		o.topkSet = true
+		o.topK = &topK
 	}
 }
 
 // WithTopP	will add an option to use top-p sampling for LLM.Call.
 func WithTopP(topP float64) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.TopP = topP
-		o.toppSet = true
+		o.topP = &topP
 	}
 }
 
 // WithSeed will add an option to use deterministic sampling for LLM.Call.
 func WithSeed(seed int) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.Seed = seed
-		o.seedSet = true
+		o.seed = &seed
 	}
 }
 
 // WithMinLength will add an option to set the minimum length of the generated text for LLM.Call.
 func WithMinLength(minLength int) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.MinLength = minLength
-		o.minLengthSet = true
+		o.minLength = &minLength
 	}
 }
 
 // WithMaxLength will add an option to set the maximum length of the generated text for LLM.Call.
 func WithMaxLength(maxLength int) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.MaxLength = maxLength
-		o.maxLengthSet = true
+		o.maxLength = &maxLength
 	}
 }
 
 // WithRepetitionPenalty will add an option to set the repetition penalty for sampling.
 func WithRepetitionPenalty(repetitionPenalty float64) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.RepetitionPenalty = repetitionPenalty
-		o.repetitionPenaltySet = true
+		o.repetitionPenalty = &repetitionPenalty
 	}
 }
 
 // WithStopWords is an option for setting the stop words for LLM.Call.
 func WithStopWords(stopWords []string) ChainCallOption {
 	return func(o *chainCallOption) {
-		o.StopWords = stopWords
+		o.stopWords = stopWords
 		o.stopWordsSet = true
 	}
 }
@@ -161,52 +143,41 @@ func WithCallback(callbackHandler callbacks.Handler) ChainCallOption {
 	}
 }
 
+func withLLmsCallOption[T any](options []llms.CallOption, option *T, applier func(T) llms.CallOption) []llms.CallOption {
+	if option != nil {
+		options = append(options, applier(*option))
+	}
+	return options
+}
+
 func getLLMCallOptions(options ...ChainCallOption) []llms.CallOption { //nolint:cyclop
 	opts := &chainCallOption{}
 	for _, option := range options {
 		option(opts)
 	}
-	if opts.StreamingFunc == nil && opts.CallbackHandler != nil {
-		opts.StreamingFunc = func(ctx context.Context, chunk []byte) error {
+	if opts.streamingFunc == nil && opts.CallbackHandler != nil {
+		opts.streamingFunc = func(ctx context.Context, chunk []byte) error {
 			opts.CallbackHandler.HandleStreamingFunc(ctx, chunk)
 			return nil
 		}
 	}
 
 	var chainCallOption []llms.CallOption
+	chainCallOption = withLLmsCallOption(chainCallOption, opts.model, llms.WithModel)
+	chainCallOption = withLLmsCallOption(chainCallOption, opts.maxTokens, llms.WithMaxTokens)
+	chainCallOption = withLLmsCallOption(chainCallOption, opts.temperature, llms.WithTemperature)
+	chainCallOption = withLLmsCallOption(chainCallOption, opts.topK, llms.WithTopK)
+	chainCallOption = withLLmsCallOption(chainCallOption, opts.topP, llms.WithTopP)
+	chainCallOption = withLLmsCallOption(chainCallOption, opts.seed, llms.WithSeed)
+	chainCallOption = withLLmsCallOption(chainCallOption, opts.minLength, llms.WithMinLength)
+	chainCallOption = withLLmsCallOption(chainCallOption, opts.maxLength, llms.WithMaxLength)
+	chainCallOption = withLLmsCallOption(chainCallOption, opts.repetitionPenalty, llms.WithRepetitionPenalty)
 
-	if opts.modelSet {
-		chainCallOption = append(chainCallOption, llms.WithModel(opts.Model))
-	}
-	if opts.maxTokensSet {
-		chainCallOption = append(chainCallOption, llms.WithMaxTokens(opts.MaxTokens))
-	}
-	if opts.temperatureSet {
-		chainCallOption = append(chainCallOption, llms.WithTemperature(opts.Temperature))
-	}
 	if opts.stopWordsSet {
-		chainCallOption = append(chainCallOption, llms.WithStopWords(opts.StopWords))
+		chainCallOption = append(chainCallOption, llms.WithStopWords(opts.stopWords))
 	}
-	if opts.topkSet {
-		chainCallOption = append(chainCallOption, llms.WithTopK(opts.TopK))
-	}
-	if opts.toppSet {
-		chainCallOption = append(chainCallOption, llms.WithTopP(opts.TopP))
-	}
-	if opts.seedSet {
-		chainCallOption = append(chainCallOption, llms.WithSeed(opts.Seed))
-	}
-	if opts.minLengthSet {
-		chainCallOption = append(chainCallOption, llms.WithMinLength(opts.MinLength))
-	}
-	if opts.maxLengthSet {
-		chainCallOption = append(chainCallOption, llms.WithMaxLength(opts.MaxLength))
-	}
-	if opts.repetitionPenaltySet {
-		chainCallOption = append(chainCallOption, llms.WithRepetitionPenalty(opts.RepetitionPenalty))
-	}
-	chainCallOption = append(chainCallOption, llms.WithStreamingFunc(opts.StreamingFunc))
 
+	chainCallOption = append(chainCallOption, llms.WithStreamingFunc(opts.streamingFunc))
 	return chainCallOption
 }
 
