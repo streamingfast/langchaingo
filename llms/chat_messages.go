@@ -45,13 +45,25 @@ type Named interface {
 
 // Statically assert that the types implement the interface.
 var (
-	_ ChatMessage = AIChatMessage{}
-	_ ChatMessage = HumanChatMessage{}
-	_ ChatMessage = SystemChatMessage{}
-	_ ChatMessage = GenericChatMessage{}
-	_ ChatMessage = FunctionChatMessage{}
-	_ ChatMessage = ToolChatMessage{}
+	_ ChatMessage      = AIChatMessage{}
+	_ ChatMessage      = HumanChatMessage{}
+	_ ChatMessage      = SystemChatMessage{}
+	_ ChatMessage      = GenericChatMessage{}
+	_ ChatMessage      = FunctionChatMessage{}
+	_ ChatMessage      = ToolChatMessage{}
+	_ ImageChatMessage = ImageChatMessage{}
 )
+
+// ImageChatMessage is a image url sent by a human.
+type ImageChatMessage struct {
+	Content string
+}
+
+func (m ImageChatMessage) GetType() ChatMessageType { return ChatMessageTypeHuman }
+
+// URL of image
+// data:image/jpeg;base64,{base64_image}
+func (m ImageChatMessage) GetContent() string { return m.Content }
 
 // AIChatMessage is a message sent by an AI.
 type AIChatMessage struct {
