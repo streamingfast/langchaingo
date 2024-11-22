@@ -63,26 +63,11 @@ func (t *LangChainTracer) HandleText(_ context.Context, _ string) {
 func (t *LangChainTracer) HandleLLMGenerateContentStart(ctx context.Context, ms []llms.MessageContent) {
 	childTree := t.activeTree.CreateChild()
 
-	inputs := []struct {
-		Role    string             `json:"role"`
-		Content []llms.ContentPart `json:"content"`
-	}{}
-
-	for _, prompt := range ms {
-		inputs = append(inputs, struct {
-			Role    string             `json:"role"`
-			Content []llms.ContentPart `json:"content"`
-		}{
-			Role:    string(prompt.Role),
-			Content: prompt.Parts,
-		})
-	}
-
 	childTree.
 		SetName("LLMGenerateContent").
 		SetRunType("llm").
 		SetInputs(KVMap{
-			"messages": inputs,
+			"messages": inputsFromMessages(ms),
 		})
 
 	t.activeTree.AppendChild(childTree)
@@ -97,9 +82,18 @@ func (t *LangChainTracer) HandleLLMGenerateContentStart(ctx context.Context, ms 
 func (t *LangChainTracer) HandleLLMGenerateContentEnd(ctx context.Context, res *llms.ContentResponse) {
 	childTree := t.activeTree.GetChild("LLMGenerateContent")
 
-	childTree.SetName("LLMGenerateContent").SetRunType("llm").SetOutputs(KVMap{
-		"res_content": res,
-	})
+	childTree.
+		SetName("LLMGenerateContent").
+		SetRunType("llm").
+		SetOutputs(KVMap{
+			"choices": res.Choices,
+		})
+
+	if tracingOutput := res.GetTracingOutput(); tracingOutput != nil {
+		childTree.
+			SetName(tracingOutput.Name).
+			SetOutputs(tracingOutput.Output)
+	}
 
 	// Close the run
 	if err := childTree.patchRun(ctx); err != nil {
