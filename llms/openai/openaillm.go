@@ -195,14 +195,6 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 	}
 	response := &llms.ContentResponse{Choices: choices}
 
-	if callbacksHandler := o.getCallbackHandler(ctx); callbacksHandler != nil {
-		tracingOutput, err := o.getTracingOutput(result)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get tracing output: %w", err)
-		}
-		response.SetTracingOutput(tracingOutput)
-		callbacksHandler.HandleLLMGenerateContentEnd(ctx, response)
-	}
 	return response, nil
 }
 

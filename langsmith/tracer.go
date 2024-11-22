@@ -68,7 +68,8 @@ func (t *LangChainTracer) HandleLLMGenerateContentStart(ctx context.Context, ms 
 		SetRunType("llm").
 		SetInputs(KVMap{
 			"messages": inputsFromMessages(ms),
-		})
+		}).
+		SetExtra(t.getExtra())
 
 	t.activeTree.AppendChild(childTree)
 
@@ -122,7 +123,7 @@ func (t *LangChainTracer) HandleChainStart(ctx context.Context, inputs map[strin
 		SetProjectName(t.projectName).
 		SetRunType("chain").
 		SetInputs(inputs).
-		SetExtra(t.extras)
+		SetExtra(t.getExtra())
 
 	if err := t.activeTree.postRun(ctx, true); err != nil {
 		t.logLangSmithError("handle_chain_start", "post run", err)
@@ -198,4 +199,23 @@ func (t *LangChainTracer) HandleStreamingFunc(_ context.Context, _ []byte) {
 
 func (t *LangChainTracer) logLangSmithError(handlerName string, tag string, err error) {
 	t.logger.Debugf("we were not able to %s to LangSmith server via handler %q: %s", handlerName, tag, err)
+}
+
+func (t *LangChainTracer) getExtra() KVMap {
+	out := t.extras
+	if out == nil {
+		out = make(KVMap)
+	}
+	out["metadata"] = KVMap{
+		"ls_method":     "traceable",
+		"ls_model_name": "gpt-4o-mini",
+		"ls_model_type": "chat",
+		"ls_provider":   "openai",
+	}
+
+	out["runtime"] = KVMap{
+		"runtime": "go",
+		"sdk":     "langchaingo",
+	}
+	return out
 }

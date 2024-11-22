@@ -71,7 +71,7 @@ func (c LLMChain) Call(ctx context.Context, values map[string]any, options ...Ch
 	llmsOptions := getLLMCallOptions(options...)
 	var llmOutput any
 	if c.useMultiPrompt {
-		llmsReponse, err := c.LLM.GenerateContent(ctx, chatMessagesToLLmMessageContent(promptValue.Messages()), llmsOptions...)
+		llmsReponse, err := c.LLM.GenerateContent(ctx, ChatMessagesToLLmMessageContent(promptValue.Messages()), llmsOptions...)
 		if err != nil {
 			return nil, fmt.Errorf("llm generate content: %w", err)
 		}
@@ -112,7 +112,7 @@ func (c LLMChain) GetOutputKeys() []string {
 
 // Convert ChatMessage to MessageContent.
 // Each ChatMessage is directly converted to a MessageContent with the same content and type.
-func chatMessagesToLLmMessageContent(chatMessages []llms.ChatMessage) []llms.MessageContent {
+func ChatMessagesToLLmMessageContent(chatMessages []llms.ChatMessage) []llms.MessageContent {
 	msgs := make([]llms.MessageContent, len(chatMessages))
 	for idx, m := range chatMessages {
 		msgs[idx] = chatMessageToLLm(m)

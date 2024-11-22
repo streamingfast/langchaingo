@@ -28,6 +28,16 @@ type Model interface {
 	Call(ctx context.Context, prompt string, options ...CallOption) (string, error)
 }
 
+type TraceableModel interface {
+	GetTracing()
+}
+
+type Metadata struct {
+	ModelName     string `json:"model_name,omitempty"`
+	ModelType     string `json:"model_type,omitempty"`
+	ModelProvider string `json:"model_provider,omitempty"`
+}
+
 // GenerateFromSinglePrompt is a convenience function for calling an LLM with
 // a single string prompt, expecting a single string response. It's useful for
 // simple, string-only interactions and provides a slightly more ergonomic API
