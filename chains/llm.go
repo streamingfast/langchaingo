@@ -107,9 +107,16 @@ func chatMessagesToLLmMessageContent(chatMessages []llms.ChatMessage) []llms.Mes
 }
 
 func chatMessageToLLm(in llms.ChatMessage) llms.MessageContent {
+	var contentPart llms.ContentPart
+	switch v := in.(type) {
+	case llms.ImageChatMessage:
+		contentPart = llms.ImageURLContent{URL: v.GetContent()}
+	default:
+		contentPart = llms.TextContent{Text: v.GetContent()}
+	}
 	return llms.MessageContent{
 		Parts: []llms.ContentPart{
-			llms.TextContent{Text: in.GetContent()},
+			contentPart,
 		},
 		Role: in.GetType(),
 	}
