@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/tmc/langchaingo/callbacks"
@@ -147,6 +148,16 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 	// if o.client.ResponseFormat is set, use it for the request
 	if o.client.ResponseFormat != nil {
 		req.ResponseFormat = o.client.ResponseFormat
+	}
+
+	// override it if set in call options
+	if opts.ResponseFormat != nil {
+		var responseFormat openaiclient.ResponseFormat
+		err := json.Unmarshal(opts.ResponseFormat, &responseFormat)
+		if err != nil {
+			return nil, err
+		}
+		req.ResponseFormat = &responseFormat
 	}
 
 	result, err := o.client.CreateChat(ctx, req)

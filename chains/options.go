@@ -65,6 +65,16 @@ type chainCallOption struct {
 
 	// CallbackHandler is the callback handler for Chain
 	CallbackHandler callbacks.Handler
+
+	// ResponseFormat is the generic format specific to LLM
+	ResponseFormat []byte `json:"response_format,omitempty"`
+}
+
+// WithResponseFormat specifies the output response format.
+func WithResponseFormat(format []byte) ChainCallOption {
+	return func(o *chainCallOption) {
+		o.ResponseFormat = format
+	}
 }
 
 // WithModel is an option for LLM.Call.
@@ -206,6 +216,7 @@ func getLLMCallOptions(options ...ChainCallOption) []llms.CallOption { //nolint:
 		chainCallOption = append(chainCallOption, llms.WithRepetitionPenalty(opts.RepetitionPenalty))
 	}
 	chainCallOption = append(chainCallOption, llms.WithStreamingFunc(opts.StreamingFunc))
+	chainCallOption = append(chainCallOption, llms.WithResponseFormat(opts.ResponseFormat))
 
 	return chainCallOption
 }
