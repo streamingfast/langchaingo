@@ -2,8 +2,6 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -11,12 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type test[I any, O any] struct {
-	name string
-	cb   NativeToolCallFunc[I, O]
-}
-
 func Test_NewNativeTool(t *testing.T) {
+	t.Parallel()
 	out, err := NewNativeTool(getCurrentWeather, "Get Current Weather Description")
 	require.NoError(t, err)
 
@@ -55,6 +49,7 @@ func Test_NewNativeTool(t *testing.T) {
 }
 
 func Test_getTollCallFunction(t *testing.T) {
+	t.Parallel()
 	input := `{"location": "San Francisco, CA","unit": "celsius"}`
 	callback := getNativeToolCallFunction[*WeatherInput, *WeatherOutput](reflect.TypeOf(&WeatherInput{}), getCurrentWeather)
 	output, err := callback(context.Background(), input)
@@ -66,7 +61,6 @@ func Test_getTollCallFunction(t *testing.T) {
 	output, err = callback(context.Background(), input)
 	require.NoError(t, err)
 	assert.Equal(t, `{"price":{"spot":1,"future":2}}`, output)
-
 }
 
 type WeatherInput struct {
@@ -80,9 +74,7 @@ type WeatherOutput struct {
 	Temp     string `json:"temp"`
 }
 
-func getCurrentWeather(ctx context.Context, in *WeatherInput) (*WeatherOutput, error) {
-	cnt, _ := json.Marshal(in)
-	fmt.Println("getCurrentWeather: ", string(cnt))
+func getCurrentWeather(_ context.Context, _ *WeatherInput) (*WeatherOutput, error) {
 	return &WeatherOutput{
 		Location: "San Francisco, CA",
 		Unit:     "fahrenheit",
@@ -101,9 +93,7 @@ type StockPriceOut struct {
 	} `json:"price"`
 }
 
-func getStockPrice(ctx context.Context, in StockPriceInput) (StockPriceOut, error) {
-	cnt, _ := json.Marshal(in)
-	fmt.Println("getStockPrice: ", string(cnt))
+func getStockPrice(_ context.Context, _ StockPriceInput) (StockPriceOut, error) {
 	return StockPriceOut{
 		Price: struct {
 			Spot   float64 `json:"spot"`

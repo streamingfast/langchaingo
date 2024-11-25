@@ -2,7 +2,6 @@ package openai
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/tmc/langchaingo/callbacks"
@@ -196,19 +195,6 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 	response := &llms.ContentResponse{Choices: choices}
 
 	return response, nil
-}
-
-func (o *LLM) getTracingOutput(resp *openaiclient.ChatCompletionResponse) (*llms.TracingOutput, error) {
-	jsonBytes, err := json.Marshal(resp)
-	if err != nil {
-		return nil, err
-	}
-	outputs := map[string]any{}
-	if err := json.Unmarshal(jsonBytes, &outputs); err != nil {
-		return nil, err
-	}
-
-	return &llms.TracingOutput{Name: "ChatOpenAI", Output: outputs}, nil
 }
 
 // CreateEmbedding creates embeddings for the given input texts.

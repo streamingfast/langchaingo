@@ -13,12 +13,7 @@ type Tool interface {
 	Call(ctx context.Context, input string) (string, error)
 }
 
-
-
-var (
-	_ Tool = &NativeTool{}
-)
-
+var _ Tool = &NativeTool{}
 
 type NativeToolCallFunc[I any, O any] func(context.Context, I) (O, error)
 

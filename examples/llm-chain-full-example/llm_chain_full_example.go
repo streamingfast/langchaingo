@@ -14,17 +14,16 @@ import (
 	"github.com/tmc/langchaingo/chains"
 	"github.com/tmc/langchaingo/langsmith"
 	"github.com/tmc/langchaingo/prompts"
+	"github.com/tmc/langchaingo/tools"
 )
 
 var flagLLMModel = flag.String("llm-model", "gpt-4o-mini", "model to use (e.g. 'gpt-4o', 'gpt-4o-mini', 'claude-3-5-haiku', 'claude-3-5-sonnet')")
 
 var logger, _ = logging.PackageLogger("llm_chain_full_example", "github.com/tmc/langchaingo/examples/llm-chain-full-example")
 
-func init() {
-	logging.InstantiateLoggers()
-}
-
 func main() {
+	logging.InstantiateLoggers()
+
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -48,6 +47,16 @@ func run() error {
 		prompts.NewSystemMessagePromptTemplate(schemaPrompt(), nil),
 		prompts.NewHumanMessagePromptTemplate("What is the current weather in {{.location}} and the stock price of {{.symbol}}", nil),
 	})
+
+	getCurrentWeatherToolCall, err := tools.NewNativeTool(getCurrentWeather, "Get a location's current weather")
+	if err != nil {
+		return fmt.Errorf("getCurrentWeatherToolCall: %w", err)
+	}
+
+	getStockPriceToolCall, err := tools.NewNativeTool(getStockPrice, "Get a symbol's stock price")
+	if err != nil {
+		return fmt.Errorf("getCurrentWeatherToolCall: %w", err)
+	}
 
 	llmChain := chains.NewLLMChainV2(llmModel, prompTemplates)
 	llmChain.RegisterTools(getCurrentWeatherToolCall, getStockPriceToolCall)

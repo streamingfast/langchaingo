@@ -46,18 +46,17 @@ func (c LLMChainV2) RegisterTools(tools ...*tools.NativeTool) error {
 	}
 	return nil
 }
-func (c LLMChainV2) getTools() (out []llms.Tool) {
+
+func (c LLMChainV2) getTools() []llms.Tool {
+	out := make([]llms.Tool, len(c.tools))
+	i := 0
 	for _, tool := range c.tools {
-		out = append(out, tool.ToLLmTool())
+		i++
+		out[i] = tool.ToLLmTool()
 	}
 	return out
-
 }
 
-// Call formats the prompts with the input values, generates using the llm, and parses
-// the output from the llm with the output parser. This function should not be called
-// directly, use rather the Call or Run function if the prompt only requires one input
-// value.
 func (c LLMChainV2) Call(ctx context.Context, values map[string]any, options ...ChainCallOption) (map[string]any, error) {
 	promptValue, err := c.prompt.FormatPrompt(values)
 	if err != nil {
@@ -123,9 +122,11 @@ func (c LLMChainV2) GetOutputKeys() []string {
 	return []string{"text"}
 }
 
-func (r *LLMChainV2) runTools(ctx context.Context, toolCalls []llms.ToolCall) (out []llms.MessageContent, err error) {
+func (c LLMChainV2) runTools(ctx context.Context, toolCalls []llms.ToolCall) ([]llms.MessageContent, error) {
+	out := []llms.MessageContent{}
+
 	for _, toolCall := range toolCalls {
-		tcall, found := r.tools[toolCall.FunctionCall.Name]
+		tcall, found := c.tools[toolCall.FunctionCall.Name]
 		if !found {
 			return nil, fmt.Errorf("tool not found: %s", tcall.Name())
 		}
@@ -158,10 +159,10 @@ func (r *LLMChainV2) runTools(ctx context.Context, toolCalls []llms.ToolCall) (o
 		})
 	}
 	return out, nil
-
 }
 
-func getToolCalls(contentResponse *llms.ContentResponse) (out []llms.ToolCall) {
+func getToolCalls(contentResponse *llms.ContentResponse) []llms.ToolCall {
+	var out []llms.ToolCall
 	for _, choice := range contentResponse.Choices {
 		if choice.StopReason == "tool_calls" {
 			out = append(out, choice.ToolCalls...)

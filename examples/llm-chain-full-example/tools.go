@@ -2,25 +2,7 @@ package main
 
 import (
 	"context"
-
-	"github.com/tmc/langchaingo/tools"
 )
-
-var getCurrentWeatherToolCall *tools.NativeTool
-var getStockPriceToolCall *tools.NativeTool
-
-func init() {
-	var err error
-	getCurrentWeatherToolCall, err = tools.NewNativeTool(getCurrentWeather, "Get a location's current weather")
-	if err != nil {
-		panic(err)
-	}
-
-	getStockPriceToolCall, err = tools.NewNativeTool(getStockPrice, "Get a symbol's stock price")
-	if err != nil {
-		panic(err)
-	}
-}
 
 type WeatherInput struct {
 	Location string `json:"location" jsonschema_description:"The city and state, e.g. San Francisco, CA"`
@@ -33,7 +15,7 @@ type WeatherOutput struct {
 	Temp     string `json:"temp"`
 }
 
-func getCurrentWeather(ctx context.Context, in *WeatherInput) (*WeatherOutput, error) {
+func getCurrentWeather(_ context.Context, in *WeatherInput) (*WeatherOutput, error) {
 	out := &WeatherOutput{
 		Location: in.Location,
 		Unit:     in.Unit,
@@ -56,7 +38,7 @@ type StockPriceOut struct {
 	} `json:"price"`
 }
 
-func getStockPrice(ctx context.Context, in StockPriceInput) (StockPriceOut, error) {
+func getStockPrice(_ context.Context, _ StockPriceInput) (StockPriceOut, error) {
 	return StockPriceOut{
 		Price: struct {
 			Spot   float64 `json:"spot"`

@@ -11,6 +11,7 @@ import (
 	"github.com/invopop/jsonschema"
 )
 
+//nolint:gochecknoglobals
 var contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
 
 func NewNativeTool[I any, O any](toolCall NativeToolCallFunc[I, O], description string) (*NativeTool, error) {
@@ -43,12 +44,12 @@ func NewNativeTool[I any, O any](toolCall NativeToolCallFunc[I, O], description 
 		structConcreteType := secondArg.Elem()
 		structPtr = reflect.New(structConcreteType)
 		structPtr.Elem().Set(reflect.Zero(structConcreteType))
-		properties, err = getJsonSchema(structPtr.Interface().(I))
+		properties, err = getJSONSchema(structPtr.Interface().(I))
 	} else {
 		structConcreteType := secondArg
 		structPtr = reflect.New(structConcreteType)
 		structPtr.Elem().Set(reflect.Zero(structConcreteType))
-		properties, err = getJsonSchema(structPtr.Interface().(*I))
+		properties, err = getJSONSchema(structPtr.Interface().(*I))
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get json schema: %w", err)
@@ -63,9 +64,12 @@ func NewNativeTool[I any, O any](toolCall NativeToolCallFunc[I, O], description 
 }
 
 func getNativeToolCallFunction[I any, O any](toolCallInput reflect.Type, toolCallFunc NativeToolCallFunc[I, O]) func(ctx context.Context, input string) (output string, err error) {
-	return func(ctx context.Context, input string) (output string, err error) {
+	return func(ctx context.Context, input string) (string, error) {
 		var funcInput I
 		var funcOutput O
+		var ok bool
+
+		// nolint:nestif
 		if toolCallInput.Kind() == reflect.Pointer {
 			// This flow occurs when your toolCallFunc input is a pointer of a struct (e.g *WeatherInput), note I = pointer of struct
 			// structConcreteType is the struct type (e.g. WeatherInput)
@@ -77,7 +81,10 @@ func getNativeToolCallFunction[I any, O any](toolCallInput reflect.Type, toolCal
 				return "", fmt.Errorf("unmarshal input: %w", err)
 			}
 			// since I is a pointer of struct and inputStructPtr is also that we cast
-			funcInput = inputStructPtr.Interface().(I)
+			funcInput, ok = inputStructPtr.Interface().(I)
+			if !ok {
+				return "", fmt.Errorf("invalid input type")
+			}
 		} else {
 			// This flow occurs when your toolCallFunc input is  a struct (e.g WeatherInput), note I = struct
 			// we are create a new pointer of the struct (*WeatherInput)
@@ -86,11 +93,14 @@ func getNativeToolCallFunction[I any, O any](toolCallInput reflect.Type, toolCal
 			if err := json.Unmarshal([]byte(input), inputStructPtr.Interface()); err != nil {
 				return "", fmt.Errorf("unmarshal input: %w", err)
 			}
-			// Since I is the struct and inputStructPtr is the pointer of the struct we will get teh Element (deference) and cast it
-			funcInput = inputStructPtr.Elem().Interface().(I)
+			// Since I is the struct and inputStructPtr is the pointer of the struct we will get the Element (deference) and cast it
+			funcInput, ok = inputStructPtr.Elem().Interface().(I)
+			if !ok {
+				return "", fmt.Errorf("invalid input type")
+			}
 		}
 
-		funcOutput, err = toolCallFunc(ctx, funcInput)
+		funcOutput, err := toolCallFunc(ctx, funcInput)
 		if err != nil {
 			return "", fmt.Errorf("tool call failed: %w", err)
 		}
@@ -102,7 +112,7 @@ func getNativeToolCallFunction[I any, O any](toolCallInput reflect.Type, toolCal
 	}
 }
 
-func getJsonSchema(in any) (map[string]any, error) {
+func getJSONSchema(in any) (map[string]any, error) {
 	r := jsonschema.Reflector{}
 	r.AssignAnchor = false
 	r.Anonymous = true
