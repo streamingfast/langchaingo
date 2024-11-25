@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/tmc/langchaingo/tools"
 )
@@ -58,7 +57,6 @@ type StockPriceOut struct {
 }
 
 func getStockPrice(ctx context.Context, in StockPriceInput) (StockPriceOut, error) {
-	fmt.Println("Getting stock price for", in.Symbol)
 	return StockPriceOut{
 		Price: struct {
 			Spot   float64 `json:"spot"`

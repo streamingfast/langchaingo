@@ -6,11 +6,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/google/uuid"
+	"github.com/invopop/jsonschema"
 	"github.com/streamingfast/logging"
 	"github.com/tmc/langchaingo/chains"
 	"github.com/tmc/langchaingo/langsmith"
+	"github.com/tmc/langchaingo/prompts"
 )
 
 var flagLLMModel = flag.String("llm-model", "gpt-4o-mini", "model to use (e.g. 'gpt-4o', 'gpt-4o-mini', 'claude-3-5-haiku', 'claude-3-5-sonnet')")
@@ -40,7 +43,13 @@ func run() error {
 		return fmt.Errorf("llm model: %w", err)
 	}
 
-	llmChain := chains.NewLLMChainV2(llmModel, getPromptTemplate())
+	prompTemplates := prompts.NewChatPromptTemplate([]prompts.MessageFormatter{
+		prompts.NewSystemMessagePromptTemplate("You are a weathe and stock expert", nil),
+		prompts.NewSystemMessagePromptTemplate(schemaPrompt(), nil),
+		prompts.NewHumanMessagePromptTemplate("What is the current weather in {{.location}} and the stock price of {{.symbol}}", nil),
+	})
+
+	llmChain := chains.NewLLMChainV2(llmModel, prompTemplates)
 	llmChain.RegisterTools(getCurrentWeatherToolCall, getStockPriceToolCall)
 
 	langsmithClient, err := langsmith.NewClient(
@@ -74,6 +83,7 @@ func run() error {
 		llmChain,
 		map[string]any{
 			"location": "Montreal, QC",
+			"symbol":   "AAPL",
 		},
 		chains.WithModel(*flagLLMModel),
 		chains.WithTemperature(0.1),
@@ -101,18 +111,64 @@ func run() error {
 	return nil
 }
 
-func getFlagOrEnv(flagValue *string, envName string) string {
-	if flagValue == nil {
-		return os.Getenv(envName)
+func schemaPrompt() string {
+	resp := &Response{
+		ChainOfThought: "The current weather in Montreal, QC is 20 degrees Celsius with a chance of rain.",
+		Answer:         "The current weather in Montreal, QC is 20 degrees Celsius with a chance of rain.",
+		Confidence:     0.9,
 	}
-	if *flagValue == "" {
-		return os.Getenv(envName)
+
+	schema, err := getJsonSchema(resp)
+	if err != nil {
+		panic(err)
 	}
-	return *flagValue
+
+	schemaStr, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+
+	exampleStr, err := json.MarshalIndent(resp, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+
+	return fmt.Sprintf(`
+	Answer in a JSON format that respects the following JSON schema.
+	When the JSON schema specifies an enum list for a string, ensure that the returned value is actually in the list of allowed values, defined of the "enum" field and mention the available value in the 'chain_of_thought' field of your response.
+	
+	%s
+	
+	Here is an example of a valid JSON output
+	
+	%s
+`, schemaStr, exampleStr)
 }
 
 type Response struct {
-	ChainOfThought string  `json:"chain-of-thought"`
-	Answer         string  `json:"answer"`
-	Confidence     float64 `json:"confidence-score"`
+	ChainOfThought string  `json:"chain-of-thought" jsonschema_description:"Explanation of the chain of thought leading to the question being answered"`
+	Answer         string  `json:"answer" jsonschema_description:"answer the question"`
+	Confidence     float64 `json:"confidence-score" jsonschema_description:"Confidence score of the answer. It should be between 0 and 1"`
+}
+
+func getJsonSchema(in any) (map[string]any, error) {
+	r := jsonschema.Reflector{}
+	r.AssignAnchor = false
+	r.Anonymous = true
+	r.AllowAdditionalProperties = false
+	r.DoNotReference = true
+	schema := r.ReflectFromType(reflect.TypeOf(in))
+
+	cnt, err := schema.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal json schema: %w", err)
+	}
+	out := map[string]any{}
+
+	if err := json.Unmarshal(cnt, &out); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json schema: %w", err)
+	}
+	delete(out, "$schema")
+	delete(out, "additionalProperties")
+	return out, nil
 }

@@ -46,6 +46,13 @@ func (c LLMChainV2) RegisterTools(tools ...*tools.NativeTool) error {
 	}
 	return nil
 }
+func (c LLMChainV2) getTools() (out []llms.Tool) {
+	for _, tool := range c.tools {
+		out = append(out, tool.ToLLmTool())
+	}
+	return out
+
+}
 
 // Call formats the prompts with the input values, generates using the llm, and parses
 // the output from the llm with the output parser. This function should not be called
@@ -59,6 +66,7 @@ func (c LLMChainV2) Call(ctx context.Context, values map[string]any, options ...
 
 	messages := ChatMessagesToLLmMessageContent(promptValue.Messages())
 	llmsOptions := getLLMCallOptions(options...)
+	llmsOptions = append(llmsOptions, llms.WithTools(c.getTools()))
 	out, err := c.call(ctx, messages, llmsOptions...)
 	if err != nil {
 		return nil, err
