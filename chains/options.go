@@ -56,6 +56,9 @@ type chainCallOption struct {
 
 	// CallbackHandler is the callback handler for Chain
 	CallbackHandler callbacks.Handler
+
+	// List of tools to pass down
+	tools []llms.Tool
 }
 
 // WithModel is an option for LLM.Call.
@@ -150,6 +153,17 @@ func withLLmsCallOption[T any](options []llms.CallOption, option *T, applier fun
 	return options
 }
 
+// WithMaxTokens is an option for LLM.Call.
+func WithTools(tools []llms.Tool) ChainCallOption {
+	return func(o *chainCallOption) {
+		o.tools = tools
+	}
+}
+
+func ChainCallOptionToLLMCallOption(options ...ChainCallOption) []llms.CallOption {
+	return getLLMCallOptions(options...)
+}
+
 func getLLMCallOptions(options ...ChainCallOption) []llms.CallOption { //nolint:cyclop
 	opts := &chainCallOption{}
 	for _, option := range options {
@@ -177,6 +191,7 @@ func getLLMCallOptions(options ...ChainCallOption) []llms.CallOption { //nolint:
 		chainCallOption = append(chainCallOption, llms.WithStopWords(opts.stopWords))
 	}
 
+	chainCallOption = append(chainCallOption, llms.WithTools(opts.tools))
 	chainCallOption = append(chainCallOption, llms.WithStreamingFunc(opts.streamingFunc))
 	return chainCallOption
 }

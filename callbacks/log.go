@@ -103,6 +103,14 @@ func (l LogHandler) HandleRetrieverEnd(_ context.Context, query string, document
 	fmt.Println("Exiting retriever with documents for query:", documents, query)
 }
 
+func (l LogHandler) HandleLLMToolCallStart(context.Context, llms.ToolCall) {
+	fmt.Println("Entering tool call")
+}
+
+func (l LogHandler) HandleLLMToolCallEnd(context.Context, string) {
+	fmt.Println("Exiting tool call")
+}
+
 func formatChainValues(values map[string]any) string {
 	output := ""
 	for key, value := range values {

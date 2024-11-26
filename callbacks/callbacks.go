@@ -15,6 +15,8 @@ type Handler interface {
 	HandleText(ctx context.Context, text string)
 	HandleLLMGenerateContentStart(ctx context.Context, ms []llms.MessageContent)
 	HandleLLMGenerateContentEnd(ctx context.Context, res *llms.ContentResponse)
+	HandleLLMToolCallStart(ctx context.Context, toolCall llms.ToolCall)
+	HandleLLMToolCallEnd(ctx context.Context, output string)
 	HandleLLMError(ctx context.Context, err error)
 	HandleChainStart(ctx context.Context, inputs map[string]any)
 	HandleChainEnd(ctx context.Context, outputs map[string]any)
