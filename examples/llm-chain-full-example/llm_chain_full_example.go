@@ -18,7 +18,7 @@ import (
 	"github.com/tmc/langchaingo/tools"
 )
 
-var flagLLMModel = flag.String("llm-model", "claude-3-5-sonnet-20241022", "model to use (e.g. 'gpt-4o', 'gpt-4o-mini', 'claude-3-5-haiku', 'claude-3-5-sonnet')")
+var flagLLMModel = flag.String("llm-model", "gpt-4o-2024-08-06", "model to use (e.g. 'gpt-4o', 'gpt-4o-mini', 'claude-3-5-haiku', 'claude-3-5-sonnet', 'claude-3-5-sonnet-20241022')")
 
 var logger, _ = logging.PackageLogger("llm_chain_full_example", "github.com/tmc/langchaingo/examples/llm-chain-full-example")
 
@@ -88,6 +88,13 @@ func run() error {
 		return fmt.Errorf("runOutputViaTool: %w", err)
 	}
 
+	fmt.Println("")
+	fmt.Println("------------------------------------------------------")
+	fmt.Println("Demoing structured output")
+	if err := runStructuredOutput(ctx, llmModel, []*tools.NativeTool{getCurrentWeatherToolCall, getStockPriceToolCall, storeRecordToolCall}, langsmithClient, os.Getenv("LANGCHAIN_PROJECT")); err != nil {
+		return fmt.Errorf("runOutputViaTool: %w", err)
+	}
+
 	return nil
 }
 
@@ -125,6 +132,7 @@ func runOutputAsJson(ctx context.Context, llmModel llms.Model, tools []*tools.Na
 		chains.WithTemperature(0.1),
 		chains.WithSeed(123),
 		chains.WithCallback(langChainTracer),
+		chains.WithJSONMode(),
 	)
 	if err != nil {
 		return err
@@ -138,6 +146,97 @@ func runOutputAsJson(ctx context.Context, llmModel llms.Model, tools []*tools.Na
 	var output Response
 	if err := json.Unmarshal([]byte(response), &output); err != nil {
 		return fmt.Errorf("unmarshal output: %w", err)
+	}
+
+	fmt.Println("")
+	fmt.Println("Chain of thought: ")
+	fmt.Println(output.ChainOfThought)
+	fmt.Println("> Answer: ", output.Answer)
+	fmt.Println("> Confidence score: ", output.Confidence)
+	return nil
+}
+
+func runStructuredOutput(ctx context.Context, llmModel llms.Model, tools []*tools.NativeTool, langsmithClient *langsmith.Client, langchainProject string) error {
+	prompTemplates := prompts.NewChatPromptTemplate([]prompts.MessageFormatter{
+		prompts.NewSystemMessagePromptTemplate("You are a weather and stock expert", nil),
+		prompts.NewHumanMessagePromptTemplate("What is the current weather in {{.location}} and the stock price of {{.symbol}}", nil),
+	})
+
+	llmChain := chains.NewLLMChainV2(llmModel, prompTemplates)
+	llmChain.RegisterTools(tools...)
+
+	// ----------------------------------------------------------------------------
+	runID := uuid.New().String()
+	langChainTracer, err := langsmith.NewTracer(
+		langsmith.WithLogger(&LangchainLogger{Logger: logger}),
+		langsmith.WithProjectName(langchainProject),
+		langsmith.WithClient(langsmithClient),
+		langsmith.WithRunID(runID),
+	)
+	if err != nil {
+		return fmt.Errorf("chain tracer: %w", err)
+	}
+
+	fmt.Println("> Running prompt with runID", runID)
+	out, err := chains.Call(
+		ctx,
+		llmChain,
+		map[string]any{
+			"location": "Montreal, QC",
+			"symbol":   "AAPL",
+		},
+		chains.WithModel(*flagLLMModel),
+		chains.WithTemperature(0.1),
+		chains.WithSeed(123),
+		chains.WithCallback(langChainTracer),
+		chains.WithJSONFormat(`{
+    "type": "json_schema",
+    "json_schema":
+    {
+        "name": "test_response",
+        "strict": true,
+        "schema":
+        {
+            "type": "object",
+            "properties":
+            {
+                "chain-of-thought":
+                {
+                    "type": "string",
+                    "description": "Explanation of the chain of thought leading to the question being answered"
+                },
+                "answer":
+                {
+                    "type": "string",
+                    "description": "answer the question"
+                },
+                "confidence-score":
+                {
+                    "type": "number",
+                    "description": "Confidence score of the answer. It should be between 0 and 1"
+                }
+            },
+            "required":
+            [
+                "chain-of-thought",
+                "answer",
+                "confidence-score"
+            ]
+        }
+    }
+}`))
+	if err != nil {
+		return err
+	}
+
+	response, ok := out["text"].(string)
+	if !ok {
+		return fmt.Errorf("invalid response type: %T", out["text"])
+	}
+
+	var output Response
+	if err := json.Unmarshal([]byte(response), &output); err != nil {
+		return fmt.Errorf("unmarshal structured output: %w", err)
 	}
 
 	fmt.Println("")

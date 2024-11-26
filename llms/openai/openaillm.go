@@ -151,7 +151,7 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 		var responseFormat openaiclient.ResponseFormat
 		err := json.Unmarshal([]byte(opts.JSONFormat), &responseFormat)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to unmarshal JSON response format: %w", err)
 		}
 		req.ResponseFormat = &responseFormat
 	} else if opts.JSONMode {

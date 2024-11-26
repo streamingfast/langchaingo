@@ -63,8 +63,8 @@ type chainCallOption struct {
 	// JSONMode is a flag to enable JSON mode, when enabled the expected response is a JSON object, However,
 	// the format of the response is not guaranteed to be consistent across backends.
 	JSONMode bool `json:"json"`
-	// JSONFormat when set is the JSONSchema of the expected response. This is useful for models that return structured data.
-	// You DO NOT need to set JSONMode if you are using JSONFormat.
+	// Note: You DO NOT need to set JSONMode if you are using JSONFormat.
+	// Note: This is not supported by all LLMs, morever the expected string here is specific to the LLM.
 	JSONFormat *string `json:"json_format"`
 }
 
@@ -179,8 +179,9 @@ func WithJSONMode() ChainCallOption {
 	}
 }
 
-// JSONFormat when set is the JSONSchema of the expected response. This is useful for models that return structured data.
-// You DO NOT need to set JSONMode if you are using JSONFormat.
+// JSONFormat when set is the json schema of the expected response. This is useful for models that return structured data.
+// Note: You DO NOT need to set JSONMode if you are using JSONFormat.
+// Note: This is not supported by all LLMs, morever the expected string here is specific to the LLM.
 func WithJSONFormat(format string) ChainCallOption {
 	return func(o *chainCallOption) {
 		o.JSONFormat = &format
