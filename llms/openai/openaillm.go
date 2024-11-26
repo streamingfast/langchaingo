@@ -124,9 +124,6 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 		Seed:                 opts.Seed,
 		Metadata:             opts.Metadata,
 	}
-	if opts.JSONMode {
-		req.ResponseFormat = ResponseFormatJSON
-	}
 
 	// since req.Functions is deprecated, we need to use the new Tools API.
 	for _, fn := range opts.Functions {
@@ -149,8 +146,17 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 		req.Tools = append(req.Tools, t)
 	}
 
-	// if o.client.ResponseFormat is set, use it for the request
-	if o.client.ResponseFormat != nil {
+	// When resolving response format we will prioritize the options first, then the client settings
+	if opts.JSONFormat != "" {
+		var responseFormat openaiclient.ResponseFormat
+		err := json.Unmarshal([]byte(opts.JSONFormat), &responseFormat)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal JSON response format: %w", err)
+		}
+		req.ResponseFormat = &responseFormat
+	} else if opts.JSONMode {
+		req.ResponseFormat = ResponseFormatJSON
+	} else if o.client.ResponseFormat != nil {
 		req.ResponseFormat = o.client.ResponseFormat
 	}
 
