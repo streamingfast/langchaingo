@@ -57,6 +57,8 @@ func NewNativeTool[I any, O any](toolCall NativeToolCallFunc[I, O], description 
 		return nil, fmt.Errorf("get json schema: %w", err)
 	}
 
+	fmt.Println("Func Name: ", funcName)
+
 	return &NativeTool{
 		name:        funcName,
 		description: description,
