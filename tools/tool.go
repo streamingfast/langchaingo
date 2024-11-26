@@ -13,14 +13,12 @@ type Tool interface {
 	Call(ctx context.Context, input string) (string, error)
 }
 
-var _ Tool = &NativeTool{}
-
 type NativeToolCallFunc[I any, O any] func(context.Context, I) (O, error)
 
 type NativeTool struct {
 	name        string
 	description string
-	call        func(context.Context, string) (string, error)
+	call        func(context.Context, llms.ToolCall) (string, error)
 	jsonSchema  map[string]any
 }
 
@@ -31,9 +29,8 @@ func (n *NativeTool) Name() string {
 func (n *NativeTool) Description() string {
 	return n.description
 }
-
-func (n *NativeTool) Call(ctx context.Context, input string) (string, error) {
-	return n.call(ctx, input)
+func (n *NativeTool) Call(ctx context.Context, toolCall llms.ToolCall) (string, error) {
+	return n.call(ctx, toolCall)
 }
 
 func (n *NativeTool) ToLLmTool() llms.Tool {

@@ -28,10 +28,6 @@ type Model interface {
 	Call(ctx context.Context, prompt string, options ...CallOption) (string, error)
 }
 
-type TraceableModel interface {
-	GetTracing()
-}
-
 type Metadata struct {
 	ModelName     string `json:"model_name,omitempty"`
 	ModelType     string `json:"model_type,omitempty"`

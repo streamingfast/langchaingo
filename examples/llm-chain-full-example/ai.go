@@ -17,6 +17,7 @@ func getLLMModel() (llms.Model, error) {
 		if organization == "" {
 			return nil, fmt.Errorf("OPENAI_ORGANIZATION is required")
 		}
+		logger.Info("Using OpenAI model")
 		return openai.New(
 			openai.WithToken(openAPIKey),
 			openai.WithOrganization(organization),
@@ -24,6 +25,7 @@ func getLLMModel() (llms.Model, error) {
 	}
 
 	if anthropicAPIKey := os.Getenv("ANTHROPIC_API_KEY"); anthropicAPIKey != "" {
+		logger.Info("Using Anthropic model")
 		return anthropic.New(anthropic.WithToken(anthropicAPIKey))
 	}
 

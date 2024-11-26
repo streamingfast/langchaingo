@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+
+	"go.uber.org/zap"
 )
 
 type WeatherInput struct {
@@ -15,7 +17,12 @@ type WeatherOutput struct {
 	Temp     string `json:"temp"`
 }
 
-func getCurrentWeather(_ context.Context, in *WeatherInput) (*WeatherOutput, error) {
+type Tools struct {
+	logger *zap.Logger
+}
+
+func (t *Tools) getCurrentWeather(_ context.Context, in *WeatherInput) (*WeatherOutput, error) {
+	t.logger.Info("getCurrentWeather", zap.Reflect("input", in))
 	out := &WeatherOutput{
 		Location: in.Location,
 		Unit:     in.Unit,
@@ -38,7 +45,8 @@ type StockPriceOut struct {
 	} `json:"price"`
 }
 
-func getStockPrice(_ context.Context, _ StockPriceInput) (StockPriceOut, error) {
+func (t *Tools) getStockPrice(_ context.Context, in StockPriceInput) (StockPriceOut, error) {
+	t.logger.Info("getStockPrice", zap.Reflect("input", in))
 	return StockPriceOut{
 		Price: struct {
 			Spot   float64 `json:"spot"`
@@ -48,4 +56,14 @@ func getStockPrice(_ context.Context, _ StockPriceInput) (StockPriceOut, error) 
 			Future: 236.12,
 		},
 	}, nil
+}
+
+type RecordInput struct {
+	Temp  string `json:"temp" jsonschema_description:"The temperature in human readable format"`
+	Price string `json:"price" jsonschema_description:"The price in human readable format"`
+}
+
+func (t *Tools) storeRecord(_ context.Context, out RecordInput) (string, error) {
+	t.logger.Info("storeRecord", zap.Reflect("input", out))
+	return "ok", nil
 }

@@ -103,3 +103,14 @@ func (l CombiningHandler) HandleToolError(ctx context.Context, err error) {
 		handle.HandleToolError(ctx, err)
 	}
 }
+
+func (l CombiningHandler) HandleLLMToolCallStart(ctx context.Context, in llms.ToolCall) {
+	for _, handle := range l.Callbacks {
+		handle.HandleLLMToolCallStart(ctx, in)
+	}
+}
+func (l CombiningHandler) HandleLLMToolCallEnd(ctx context.Context, out string) {
+	for _, handle := range l.Callbacks {
+		handle.HandleLLMToolCallEnd(ctx, out)
+	}
+}

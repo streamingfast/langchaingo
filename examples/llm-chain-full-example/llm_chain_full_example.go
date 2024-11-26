@@ -13,17 +13,21 @@ import (
 	"github.com/streamingfast/logging"
 	"github.com/tmc/langchaingo/chains"
 	"github.com/tmc/langchaingo/langsmith"
+	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/prompts"
 	"github.com/tmc/langchaingo/tools"
 )
 
-var flagLLMModel = flag.String("llm-model", "gpt-4o-mini", "model to use (e.g. 'gpt-4o', 'gpt-4o-mini', 'claude-3-5-haiku', 'claude-3-5-sonnet')")
+var flagLLMModel = flag.String("llm-model", "claude-3-5-sonnet-20241022", "model to use (e.g. 'gpt-4o', 'gpt-4o-mini', 'claude-3-5-haiku', 'claude-3-5-sonnet')")
 
 var logger, _ = logging.PackageLogger("llm_chain_full_example", "github.com/tmc/langchaingo/examples/llm-chain-full-example")
 
-func main() {
+func init() {
 	logging.InstantiateLoggers()
+}
 
+func main() {
+	logger.Info("Starting LLM chain full example")
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -42,24 +46,24 @@ func run() error {
 		return fmt.Errorf("llm model: %w", err)
 	}
 
-	prompTemplates := prompts.NewChatPromptTemplate([]prompts.MessageFormatter{
-		prompts.NewSystemMessagePromptTemplate("You are a weathe and stock expert", nil),
-		prompts.NewSystemMessagePromptTemplate(schemaPrompt(), nil),
-		prompts.NewHumanMessagePromptTemplate("What is the current weather in {{.location}} and the stock price of {{.symbol}}", nil),
-	})
+	myTools := &Tools{
+		logger: logger,
+	}
 
-	getCurrentWeatherToolCall, err := tools.NewNativeTool(getCurrentWeather, "Get a location's current weather")
+	getCurrentWeatherToolCall, err := tools.NewNativeTool(myTools.getCurrentWeather, "Get a location's current weather")
 	if err != nil {
 		return fmt.Errorf("getCurrentWeatherToolCall: %w", err)
 	}
 
-	getStockPriceToolCall, err := tools.NewNativeTool(getStockPrice, "Get a symbol's stock price")
+	getStockPriceToolCall, err := tools.NewNativeTool(myTools.getStockPrice, "Get a symbol's stock price")
 	if err != nil {
 		return fmt.Errorf("getCurrentWeatherToolCall: %w", err)
 	}
 
-	llmChain := chains.NewLLMChainV2(llmModel, prompTemplates)
-	llmChain.RegisterTools(getCurrentWeatherToolCall, getStockPriceToolCall)
+	storeRecordToolCall, err := tools.NewNativeTool(myTools.storeRecord, "Store the temprature and stock price")
+	if err != nil {
+		return fmt.Errorf("storeRecordToolCall: %w", err)
+	}
 
 	langsmithClient, err := langsmith.NewClient(
 		langsmith.WithAPIKey(os.Getenv("LANGCHAIN_API_KEY")),
@@ -70,11 +74,34 @@ func run() error {
 		return fmt.Errorf("new langsmith client: %w", err)
 	}
 
-	langchainProject := os.Getenv("LANGCHAIN_PROJECT")
+	fmt.Println("")
+	fmt.Println("------------------------------------------------------")
+	fmt.Println("Demoing JSON output leveraging a prompt schema")
+	if err := runOutputAsJson(ctx, llmModel, []*tools.NativeTool{getCurrentWeatherToolCall, getStockPriceToolCall, storeRecordToolCall}, langsmithClient, os.Getenv("LANGCHAIN_PROJECT")); err != nil {
+		return fmt.Errorf("runOutputAsJson: %w", err)
+	}
+
+	fmt.Println("")
+	fmt.Println("------------------------------------------------------")
+	fmt.Println("Demoing JSON output via a tool call")
+	if err := runOutputViaTool(ctx, llmModel, []*tools.NativeTool{getCurrentWeatherToolCall, getStockPriceToolCall, storeRecordToolCall}, langsmithClient, os.Getenv("LANGCHAIN_PROJECT")); err != nil {
+		return fmt.Errorf("runOutputViaTool: %w", err)
+	}
+
+	return nil
+}
+
+func runOutputAsJson(ctx context.Context, llmModel llms.Model, tools []*tools.NativeTool, langsmithClient *langsmith.Client, langchainProject string) error {
+	prompTemplates := prompts.NewChatPromptTemplate([]prompts.MessageFormatter{
+		prompts.NewSystemMessagePromptTemplate("You are a weather and stock expert", nil),
+		prompts.NewSystemMessagePromptTemplate(schemaPrompt(), nil),
+		prompts.NewHumanMessagePromptTemplate("What is the current weather in {{.location}} and the stock price of {{.symbol}}", nil),
+	})
+
+	llmChain := chains.NewLLMChainV2(llmModel, prompTemplates)
+	llmChain.RegisterTools(tools...)
 
 	// ----------------------------------------------------------------------------
-	// ----------------------------------------------------------------------------
-	// --- This would happen on every RUN ---
 	runID := uuid.New().String()
 	langChainTracer, err := langsmith.NewTracer(
 		langsmith.WithLogger(&LangchainLogger{Logger: logger}),
@@ -103,7 +130,10 @@ func run() error {
 		return err
 	}
 
-	response := out["text"].(string)
+	response, ok := out["text"].(string)
+	if !ok {
+		return fmt.Errorf("invalid response type: %T", out["text"])
+	}
 
 	var output Response
 	if err := json.Unmarshal([]byte(response), &output); err != nil {
@@ -111,12 +141,56 @@ func run() error {
 	}
 
 	fmt.Println("")
-	fmt.Println("------------------------------------------------------")
 	fmt.Println("Chain of thought: ")
 	fmt.Println(output.ChainOfThought)
-	fmt.Println("------------------------------------------------------")
 	fmt.Println("> Answer: ", output.Answer)
 	fmt.Println("> Confidence score: ", output.Confidence)
+	return nil
+}
+
+func runOutputViaTool(ctx context.Context, llmModel llms.Model, tools []*tools.NativeTool, langsmithClient *langsmith.Client, langchainProject string) error {
+	prompTemplates := prompts.NewChatPromptTemplate([]prompts.MessageFormatter{
+		prompts.NewSystemMessagePromptTemplate("You are a weather and stock expert. store the temperature and stock price", nil),
+		prompts.NewHumanMessagePromptTemplate("What is the current weather in {{.location}} and the stock price of {{.symbol}}", nil),
+	})
+
+	llmChain := chains.NewLLMChainV2(llmModel, prompTemplates)
+	llmChain.RegisterTools(tools...)
+
+	// ----------------------------------------------------------------------------
+	runID := uuid.New().String()
+	langChainTracer, err := langsmith.NewTracer(
+		langsmith.WithLogger(&LangchainLogger{Logger: logger}),
+		langsmith.WithProjectName(langchainProject),
+		langsmith.WithClient(langsmithClient),
+		langsmith.WithRunID(runID),
+	)
+	if err != nil {
+		return fmt.Errorf("chain tracer: %w", err)
+	}
+
+	fmt.Println("> Running prompt with runID", runID)
+	out, err := chains.Call(
+		ctx,
+		llmChain,
+		map[string]any{
+			"location": "Montreal, QC",
+			"symbol":   "AAPL",
+		},
+		chains.WithModel(*flagLLMModel),
+		chains.WithTemperature(0.1),
+		chains.WithSeed(123),
+		chains.WithCallback(langChainTracer),
+	)
+	if err != nil {
+		return err
+	}
+
+	response, ok := out["text"].(string)
+	if !ok {
+		return fmt.Errorf("invalid response type: %T", out["text"])
+	}
+	fmt.Print(response)
 	return nil
 }
 

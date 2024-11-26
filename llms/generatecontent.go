@@ -127,7 +127,6 @@ type ContentResponse struct {
 }
 
 type TracingOutput struct {
-	Name   string
 	Output map[string]any
 }
 

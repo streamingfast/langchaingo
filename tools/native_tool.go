@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/invopop/jsonschema"
+	"github.com/tmc/langchaingo/callbacks"
+	"github.com/tmc/langchaingo/llms"
 )
 
 //nolint:gochecknoglobals
@@ -63,11 +65,18 @@ func NewNativeTool[I any, O any](toolCall NativeToolCallFunc[I, O], description 
 	}, nil
 }
 
-func getNativeToolCallFunction[I any, O any](toolCallInput reflect.Type, toolCallFunc NativeToolCallFunc[I, O]) func(ctx context.Context, input string) (output string, err error) {
-	return func(ctx context.Context, input string) (string, error) {
+func getNativeToolCallFunction[I any, O any](toolCallInput reflect.Type, toolCallFunc NativeToolCallFunc[I, O]) func(ctx context.Context, llmToolCall llms.ToolCall) (output string, err error) {
+	return func(ctx context.Context, toolCall llms.ToolCall) (output string, err error) {
+		input := toolCall.FunctionCall.Arguments
 		var funcInput I
-		var funcOutput O
 		var ok bool
+
+		if callbacksHandler := callbacks.CallbackHandler(ctx); callbacksHandler != nil {
+			callbacksHandler.HandleLLMToolCallStart(ctx, toolCall)
+			defer func() {
+				callbacksHandler.HandleLLMToolCallEnd(ctx, output)
+			}()
+		}
 
 		// nolint:nestif
 		if toolCallInput.Kind() == reflect.Pointer {

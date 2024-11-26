@@ -9,6 +9,7 @@ import (
 	"github.com/tmc/langchaingo/callbacks"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/schema"
+	"github.com/tmc/langchaingo/tracing"
 )
 
 var _ callbacks.Handler = (*LangChainTracer)(nil)
@@ -18,10 +19,12 @@ type LangChainTracer struct {
 	projectName string
 	client      *Client
 
-	runID      string
-	activeTree *RunTree
-	extras     KVMap
-	logger     LeveledLoggerInterface
+	runID       string
+	activeTree  *RunTree
+	treeStack   stack
+	extras      KVMap
+	llmMetadata *tracing.TracerLLMMetadata
+	logger      LeveledLoggerInterface
 }
 
 func NewTracer(opts ...LangChainTracerOption) (*LangChainTracer, error) {
@@ -63,13 +66,15 @@ func (t *LangChainTracer) HandleText(_ context.Context, _ string) {
 func (t *LangChainTracer) HandleLLMGenerateContentStart(ctx context.Context, ms []llms.MessageContent) {
 	childTree := t.activeTree.CreateChild()
 
+	t.treeStack = t.treeStack.Push(childTree)
+
 	childTree.
-		SetName("LLMGenerateContent").
+		SetName(t.getSpanName("LLMGenerateContent")).
 		SetRunType("llm").
 		SetInputs(KVMap{
 			"messages": inputsFromMessages(ms),
 		}).
-		SetExtra(t.getExtra())
+		SetExtra(t.getExtra(nil))
 
 	t.activeTree.AppendChild(childTree)
 
@@ -81,19 +86,17 @@ func (t *LangChainTracer) HandleLLMGenerateContentStart(ctx context.Context, ms 
 }
 
 func (t *LangChainTracer) HandleLLMGenerateContentEnd(ctx context.Context, res *llms.ContentResponse) {
-	childTree := t.activeTree.GetChild("LLMGenerateContent")
+
+	var childTree *RunTree
+	t.treeStack, childTree = t.treeStack.Pop()
 
 	childTree.
-		SetName("LLMGenerateContent").
-		SetRunType("llm").
 		SetOutputs(KVMap{
 			"choices": res.Choices,
 		})
 
 	if tracingOutput := res.GetTracingOutput(); tracingOutput != nil {
-		childTree.
-			SetName(tracingOutput.Name).
-			SetOutputs(tracingOutput.Output)
+		childTree.SetOutputs(tracingOutput.Output)
 	}
 
 	// Close the run
@@ -123,7 +126,7 @@ func (t *LangChainTracer) HandleChainStart(ctx context.Context, inputs map[strin
 		SetProjectName(t.projectName).
 		SetRunType("chain").
 		SetInputs(inputs).
-		SetExtra(t.getExtra())
+		SetExtra(t.getExtra(nil))
 
 	if err := t.activeTree.postRun(ctx, true); err != nil {
 		t.logLangSmithError("handle_chain_start", "post run", err)
@@ -155,6 +158,46 @@ func (t *LangChainTracer) HandleChainError(ctx context.Context, err error) {
 	}
 
 	t.activeTree = nil
+}
+
+func (t *LangChainTracer) HandleLLMToolCallStart(ctx context.Context, toolCall llms.ToolCall) {
+	childTree := t.activeTree.CreateChild()
+
+	t.treeStack = t.treeStack.Push(childTree)
+
+	childTree.
+		SetName(toolCall.FunctionCall.Name).
+		SetRunType("tool").
+		SetInputs(KVMap{
+			"inputs": toolCall.FunctionCall.Arguments,
+		}).
+		SetExtra(t.getExtra(KVMap{
+			"tool_name": toolCall.FunctionCall.Name,
+			"call_id":   toolCall.ID,
+		}))
+
+	t.activeTree.AppendChild(childTree)
+
+	// Start the run
+	if err := childTree.postRun(ctx, true); err != nil {
+		t.logLangSmithError("llm_start", "post run", err)
+		return
+	}
+}
+func (t *LangChainTracer) HandleLLMToolCallEnd(ctx context.Context, output string) {
+	var childTree *RunTree
+	t.treeStack, childTree = t.treeStack.Pop()
+
+	childTree.
+		SetOutputs(KVMap{
+			"output": output,
+		})
+
+	// Close the run
+	if err := childTree.patchRun(ctx); err != nil {
+		t.logLangSmithError("llm_start", "post run", err)
+		return
+	}
 }
 
 // HandleToolStart implements callbacks.Handler.
@@ -201,21 +244,39 @@ func (t *LangChainTracer) logLangSmithError(handlerName string, tag string, err 
 	t.logger.Debugf("we were not able to %s to LangSmith server via handler %q: %s", handlerName, tag, err)
 }
 
-func (t *LangChainTracer) getExtra() KVMap {
+func (t *LangChainTracer) getExtra(others KVMap) KVMap {
 	out := t.extras
 	if out == nil {
 		out = make(KVMap)
 	}
-	out["metadata"] = KVMap{
-		"ls_method":     "traceable",
-		"ls_model_name": "gpt-4o-mini",
-		"ls_model_type": "chat",
-		"ls_provider":   "openai",
+
+	if t.llmMetadata != nil {
+		out["metadata"] = KVMap{
+			"ls_method":     "traceable",
+			"ls_model_name": t.llmMetadata.ModelName,
+			"ls_model_type": t.llmMetadata.ModelType,
+			"ls_provider":   t.llmMetadata.Provider,
+		}
 	}
 
 	out["runtime"] = KVMap{
 		"runtime": "go",
 		"sdk":     "langchaingo",
 	}
+
+	for k, v := range others {
+		out[k] = v
+	}
 	return out
+}
+
+func (t *LangChainTracer) SetLLMMetadata(metadata *tracing.TracerLLMMetadata) {
+	t.llmMetadata = metadata
+}
+
+func (t *LangChainTracer) getSpanName(defaultValue string) string {
+	if t.llmMetadata != nil {
+		return t.llmMetadata.SpanName
+	}
+	return defaultValue
 }

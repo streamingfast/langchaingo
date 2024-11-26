@@ -5,7 +5,9 @@ go 1.22.0
 toolchain go1.22.1
 
 require (
+	github.com/davecgh/go-spew v1.1.1
 	github.com/google/uuid v1.6.0
+	github.com/invopop/jsonschema v0.12.0
 	github.com/streamingfast/logging v0.0.0-20220304214715-bc750a74b424
 	github.com/tmc/langchaingo v0.1.13-pre.0
 	go.uber.org/zap v1.21.0
@@ -23,7 +25,6 @@ require (
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
-	github.com/invopop/jsonschema v0.12.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect

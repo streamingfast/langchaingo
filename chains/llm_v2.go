@@ -51,8 +51,8 @@ func (c LLMChainV2) getTools() []llms.Tool {
 	out := make([]llms.Tool, len(c.tools))
 	i := 0
 	for _, tool := range c.tools {
-		i++
 		out[i] = tool.ToLLmTool()
+		i++
 	}
 	return out
 }
@@ -131,7 +131,7 @@ func (c LLMChainV2) runTools(ctx context.Context, toolCalls []llms.ToolCall) ([]
 			return nil, fmt.Errorf("tool not found: %s", tcall.Name())
 		}
 
-		response, err := tcall.Call(ctx, toolCall.FunctionCall.Arguments)
+		response, err := tcall.Call(ctx, toolCall)
 		if err != nil {
 			return nil, fmt.Errorf("failed tool %s: %w", toolCall.FunctionCall, err)
 		}

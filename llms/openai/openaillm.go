@@ -2,11 +2,13 @@ package openai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/tmc/langchaingo/callbacks"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai/internal/openaiclient"
+	"github.com/tmc/langchaingo/tracing"
 )
 
 type ChatMessage = openaiclient.ChatMessage
@@ -52,13 +54,16 @@ func (o *LLM) getCallbackHandler(ctx context.Context) callbacks.Handler {
 
 // GenerateContent implements the Model interface.
 func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageContent, options ...llms.CallOption) (*llms.ContentResponse, error) { //nolint: lll, cyclop, goerr113, funlen
-	if callbacksHandler := o.getCallbackHandler(ctx); callbacksHandler != nil {
-		callbacksHandler.HandleLLMGenerateContentStart(ctx, messages)
-	}
-
 	opts := llms.CallOptions{}
 	for _, opt := range options {
 		opt(&opts)
+	}
+
+	if callbacksHandler := o.getCallbackHandler(ctx); callbacksHandler != nil {
+		if trace, ok := callbacksHandler.(tracing.Traceable); ok {
+			trace.SetLLMMetadata(o.getTracerMetadata(opts.Model))
+		}
+		callbacksHandler.HandleLLMGenerateContentStart(ctx, messages)
 	}
 
 	chatMsgs := make([]*ChatMessage, 0, len(messages))
@@ -194,7 +199,29 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 	}
 	response := &llms.ContentResponse{Choices: choices}
 
+	if callbacksHandler := o.getCallbackHandler(ctx); callbacksHandler != nil {
+		tracingOutput, err := o.getTracingOutput(result)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get tracing output: %w", err)
+		}
+		response.SetTracingOutput(tracingOutput)
+		callbacksHandler.HandleLLMGenerateContentEnd(ctx, response)
+	}
+
 	return response, nil
+}
+
+func (o *LLM) getTracingOutput(resp *openaiclient.ChatCompletionResponse) (*llms.TracingOutput, error) {
+	jsonBytes, err := json.Marshal(resp)
+	if err != nil {
+		return nil, err
+	}
+	outputs := map[string]any{}
+	if err := json.Unmarshal(jsonBytes, &outputs); err != nil {
+		return nil, err
+	}
+
+	return &llms.TracingOutput{Output: outputs}, nil
 }
 
 // CreateEmbedding creates embeddings for the given input texts.
@@ -271,5 +298,14 @@ func toolCallFromToolCall(tc llms.ToolCall) openaiclient.ToolCall {
 			Name:      tc.FunctionCall.Name,
 			Arguments: tc.FunctionCall.Arguments,
 		},
+	}
+}
+
+func (o *LLM) getTracerMetadata(model string) *tracing.TracerLLMMetadata {
+	return &tracing.TracerLLMMetadata{
+		SpanName:  "ChatOpenAI",
+		ModelName: model,
+		ModelType: "chat",
+		Provider:  "openai",
 	}
 }
