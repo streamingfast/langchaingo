@@ -39,10 +39,6 @@ type CallOptions struct {
 	FrequencyPenalty float64 `json:"frequency_penalty"`
 	// PresencePenalty is the presence penalty for sampling.
 	PresencePenalty float64 `json:"presence_penalty"`
-
-	// JSONMode is a flag to enable JSON mode.
-	JSONMode bool `json:"json"`
-
 	// Tools is a list of tools to use. Each tool can be a specific tool or a function.
 	Tools []Tool `json:"tools,omitempty"`
 	// ToolChoice is the choice of tool to use, it can either be "none", "auto" (the default behavior), or a specific tool as described in the ToolChoice type.
@@ -66,6 +62,13 @@ type CallOptions struct {
 	// Supported MIME types are: text/plain: (default) Text output.
 	// application/json: JSON response in the response candidates.
 	ResponseMIMEType string `json:"response_mime_type,omitempty"`
+
+	// JSONMode is a flag to enable JSON mode, when enabled the expected response is a JSON object, However,
+	// the format of the response is not guaranteed to be consistent across backends.
+	JSONMode bool `json:"json"`
+	// JSONFormat when set is the JSONSchema of the expected response. This is useful for models that return structured data.
+	// You DO NOT need to set JSONMode if you are using JSONFormat.
+	JSONFormat string `json:"json_format"`
 }
 
 // Tool is a tool that can be used by the model.
@@ -262,6 +265,13 @@ func WithTools(tools []Tool) CallOption {
 func WithJSONMode() CallOption {
 	return func(o *CallOptions) {
 		o.JSONMode = true
+	}
+}
+
+// WithJSONFormat when set is the JSONSchema of the expected response.
+func WithJSONFormat(jsonFormat string) CallOption {
+	return func(o *CallOptions) {
+		o.JSONFormat = jsonFormat
 	}
 }
 

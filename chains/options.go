@@ -59,6 +59,13 @@ type chainCallOption struct {
 
 	// List of tools to pass down
 	tools []llms.Tool
+
+	// JSONMode is a flag to enable JSON mode, when enabled the expected response is a JSON object, However,
+	// the format of the response is not guaranteed to be consistent across backends.
+	JSONMode bool `json:"json"`
+	// JSONFormat when set is the JSONSchema of the expected response. This is useful for models that return structured data.
+	// You DO NOT need to set JSONMode if you are using JSONFormat.
+	JSONFormat *string `json:"json_format"`
 }
 
 // WithModel is an option for LLM.Call.
@@ -164,6 +171,22 @@ func ChainCallOptionToLLMCallOption(options ...ChainCallOption) []llms.CallOptio
 	return getLLMCallOptions(options...)
 }
 
+// JSONMode is a flag to enable JSON mode, when enabled the expected response is a JSON object, However,
+// the format of the response is not guaranteed to be consistent across backends.
+func WithJSONMode() ChainCallOption {
+	return func(o *chainCallOption) {
+		o.JSONMode = true
+	}
+}
+
+// JSONFormat when set is the JSONSchema of the expected response. This is useful for models that return structured data.
+// You DO NOT need to set JSONMode if you are using JSONFormat.
+func WithJSONFormat(format string) ChainCallOption {
+	return func(o *chainCallOption) {
+		o.JSONFormat = &format
+	}
+}
+
 func getLLMCallOptions(options ...ChainCallOption) []llms.CallOption { //nolint:cyclop
 	opts := &chainCallOption{}
 	for _, option := range options {
@@ -186,6 +209,11 @@ func getLLMCallOptions(options ...ChainCallOption) []llms.CallOption { //nolint:
 	chainCallOption = withLLmsCallOption(chainCallOption, opts.minLength, llms.WithMinLength)
 	chainCallOption = withLLmsCallOption(chainCallOption, opts.maxLength, llms.WithMaxLength)
 	chainCallOption = withLLmsCallOption(chainCallOption, opts.repetitionPenalty, llms.WithRepetitionPenalty)
+	chainCallOption = withLLmsCallOption(chainCallOption, opts.JSONFormat, llms.WithJSONFormat)
+
+	if opts.JSONMode {
+		chainCallOption = append(chainCallOption, llms.WithJSONMode())
+	}
 
 	if opts.stopWordsSet {
 		chainCallOption = append(chainCallOption, llms.WithStopWords(opts.stopWords))
