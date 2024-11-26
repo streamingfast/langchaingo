@@ -64,6 +64,16 @@ func Test_getTollCallFunction(t *testing.T) {
 	assert.Equal(t, `{"price":{"spot":1,"future":2}}`, output)
 }
 
+func Test_getFunctionName(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "getCurrentWeather", getFunctionName(getCurrentWeather))
+	assert.Equal(t, "getStockPrice", getFunctionName(getStockPrice))
+
+	toolTest := &NativeToolTest{}
+	assert.Equal(t, "GetName", getFunctionName(toolTest.GetName))
+}
+
 type WeatherInput struct {
 	Location string `json:"location" jsonschema_description:"The city and state, e.g. San Francisco, CA"`
 	Unit     string `json:"unit" jsonschema:"enum=fahrenheit,enum=celsius"`
@@ -104,4 +114,18 @@ func getStockPrice(_ context.Context, _ StockPriceInput) (StockPriceOut, error) 
 			Future: 2,
 		},
 	}, nil
+}
+
+type NativeToolTest struct{}
+
+type GetNameInput struct {
+	Name string `json:"name"`
+}
+
+type GetNameOutput struct {
+	Name string `json:"name"`
+}
+
+func (n *NativeToolTest) GetName(_ context.Context, in *GetNameInput) (*GetNameOutput, error) {
+	return &GetNameOutput{Name: in.Name}, nil
 }

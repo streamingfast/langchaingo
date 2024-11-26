@@ -71,7 +71,7 @@ func Call(ctx context.Context, c Chain, inputValues map[string]any, options ...C
 	return outputValues, nil
 }
 
-// CallInto calls the chain and unmarshals the output in the value pointed to by v. If v is nil or not a pointer, returns an error
+// CallInto calls the chain and unmarshals the output in the value pointed to by v. If v is nil or not a pointer, returns an error.
 func CallInto(ctx context.Context, c Chain, inputValues map[string]any, v any, options ...ChainCallOption) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() {
