@@ -164,7 +164,7 @@ func (c LLMChainV2) runTools(ctx context.Context, toolCalls []llms.ToolCall) ([]
 func getToolCalls(contentResponse *llms.ContentResponse) []llms.ToolCall {
 	var out []llms.ToolCall
 	for _, choice := range contentResponse.Choices {
-		if choice.StopReason == "tool_calls" {
+		if choice.StopReason == "tool_calls" || choice.StopReason == "tool_use" {
 			out = append(out, choice.ToolCalls...)
 		}
 	}
