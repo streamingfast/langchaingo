@@ -29,6 +29,7 @@ func (n *NativeTool) Name() string {
 func (n *NativeTool) Description() string {
 	return n.description
 }
+
 func (n *NativeTool) Call(ctx context.Context, toolCall llms.ToolCall) (string, error) {
 	return n.call(ctx, toolCall)
 }

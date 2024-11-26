@@ -106,6 +106,7 @@ func (l LogHandler) HandleRetrieverEnd(_ context.Context, query string, document
 func (l LogHandler) HandleLLMToolCallStart(context.Context, llms.ToolCall) {
 	fmt.Println("Entering tool call")
 }
+
 func (l LogHandler) HandleLLMToolCallEnd(context.Context, string) {
 	fmt.Println("Exiting tool call")
 }

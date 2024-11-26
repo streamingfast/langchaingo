@@ -86,7 +86,6 @@ func (t *LangChainTracer) HandleLLMGenerateContentStart(ctx context.Context, ms 
 }
 
 func (t *LangChainTracer) HandleLLMGenerateContentEnd(ctx context.Context, res *llms.ContentResponse) {
-
 	var childTree *RunTree
 	t.treeStack, childTree = t.treeStack.Pop()
 
@@ -184,6 +183,7 @@ func (t *LangChainTracer) HandleLLMToolCallStart(ctx context.Context, toolCall l
 		return
 	}
 }
+
 func (t *LangChainTracer) HandleLLMToolCallEnd(ctx context.Context, output string) {
 	var childTree *RunTree
 	t.treeStack, childTree = t.treeStack.Pop()

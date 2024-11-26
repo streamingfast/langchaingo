@@ -210,7 +210,6 @@ type MessageEvent struct {
 }
 
 func parseStreamingMessageResponse(ctx context.Context, r *http.Response, payload *messagePayload) (*MessageResponsePayload, error) {
-
 	scanner := bufio.NewScanner(r.Body)
 	eventChan := make(chan MessageEvent)
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tmc/langchaingo/llms"
 )
 
 func Test_NewNativeTool(t *testing.T) {
@@ -52,13 +53,13 @@ func Test_getTollCallFunction(t *testing.T) {
 	t.Parallel()
 	input := `{"location": "San Francisco, CA","unit": "celsius"}`
 	callback := getNativeToolCallFunction[*WeatherInput, *WeatherOutput](reflect.TypeOf(&WeatherInput{}), getCurrentWeather)
-	output, err := callback(context.Background(), input)
+	output, err := callback(context.Background(), llms.ToolCall{FunctionCall: &llms.FunctionCall{Arguments: input}})
 	require.NoError(t, err)
 	assert.Equal(t, `{"location":"San Francisco, CA","unit":"fahrenheit","temp":"72"}`, output)
 
 	input = `{"symbol": "GOOG"}`
 	callback = getNativeToolCallFunction[StockPriceInput, StockPriceOut](reflect.TypeOf(StockPriceInput{}), getStockPrice)
-	output, err = callback(context.Background(), input)
+	output, err = callback(context.Background(), llms.ToolCall{FunctionCall: &llms.FunctionCall{Arguments: input}})
 	require.NoError(t, err)
 	assert.Equal(t, `{"price":{"spot":1,"future":2}}`, output)
 }

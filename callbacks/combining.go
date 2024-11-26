@@ -109,6 +109,7 @@ func (l CombiningHandler) HandleLLMToolCallStart(ctx context.Context, in llms.To
 		handle.HandleLLMToolCallStart(ctx, in)
 	}
 }
+
 func (l CombiningHandler) HandleLLMToolCallEnd(ctx context.Context, out string) {
 	for _, handle := range l.Callbacks {
 		handle.HandleLLMToolCallEnd(ctx, out)
