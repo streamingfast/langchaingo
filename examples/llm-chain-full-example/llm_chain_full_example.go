@@ -60,7 +60,7 @@ func run() error {
 		return fmt.Errorf("getCurrentWeatherToolCall: %w", err)
 	}
 
-	storeRecordToolCall, err := tools.NewNativeTool(myTools.storeRecord, "Store the temprature and stock price")
+	storeRecordToolCall, err := tools.NewNativeTool(myTools.storeRecord, "Store the temperature and stock price")
 	if err != nil {
 		return fmt.Errorf("storeRecordToolCall: %w", err)
 	}
@@ -121,13 +121,16 @@ func runOutputAsJson(ctx context.Context, llmModel llms.Model, tools []*tools.Na
 	}
 
 	fmt.Println("> Running prompt with runID", runID)
-	out, err := chains.Call(
+	output := &Response{}
+
+	err = chains.CallInto(
 		ctx,
 		llmChain,
 		map[string]any{
 			"location": "Montreal, QC",
 			"symbol":   "AAPL",
 		},
+		output,
 		chains.WithModel(*flagLLMModel),
 		chains.WithTemperature(0.1),
 		chains.WithSeed(123),
@@ -136,16 +139,6 @@ func runOutputAsJson(ctx context.Context, llmModel llms.Model, tools []*tools.Na
 	)
 	if err != nil {
 		return err
-	}
-
-	response, ok := out["text"].(string)
-	if !ok {
-		return fmt.Errorf("invalid response type: %T", out["text"])
-	}
-
-	var output Response
-	if err := json.Unmarshal([]byte(response), &output); err != nil {
-		return fmt.Errorf("unmarshal output: %w", err)
 	}
 
 	fmt.Println("")
@@ -178,13 +171,17 @@ func runStructuredOutput(ctx context.Context, llmModel llms.Model, tools []*tool
 	}
 
 	fmt.Println("> Running prompt with runID", runID)
-	out, err := chains.Call(
+
+	output := &Response{}
+
+	err = chains.CallInto(
 		ctx,
 		llmChain,
 		map[string]any{
 			"location": "Montreal, QC",
 			"symbol":   "AAPL",
 		},
+		output,
 		chains.WithModel(*flagLLMModel),
 		chains.WithTemperature(0.1),
 		chains.WithSeed(123),
@@ -227,16 +224,6 @@ func runStructuredOutput(ctx context.Context, llmModel llms.Model, tools []*tool
 }`))
 	if err != nil {
 		return err
-	}
-
-	response, ok := out["text"].(string)
-	if !ok {
-		return fmt.Errorf("invalid response type: %T", out["text"])
-	}
-
-	var output Response
-	if err := json.Unmarshal([]byte(response), &output); err != nil {
-		return fmt.Errorf("unmarshal structured output: %w", err)
 	}
 
 	fmt.Println("")

@@ -2,7 +2,9 @@ package chains
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/tmc/langchaingo/callbacks"
@@ -67,6 +69,31 @@ func Call(ctx context.Context, c Chain, inputValues map[string]any, options ...C
 	}
 
 	return outputValues, nil
+}
+
+// CallInto calls the chain and unmarshals the output in the value pointed to by v. If v is nil or not a pointer, returns an error
+func CallInto(ctx context.Context, c Chain, inputValues map[string]any, v any, options ...ChainCallOption) error {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
+		return fmt.Errorf("v is not a pointer")
+	}
+
+	outputValues, err := Call(ctx, c, inputValues, options...)
+	if err != nil {
+		return err
+	}
+
+	outputKeys := c.GetOutputKeys()
+	if len(outputKeys) == 0 {
+		return fmt.Errorf("expected at least one output key, got %d", len(outputKeys))
+	}
+
+	outputString, ok := outputValues[outputKeys[0]].(string)
+	if !ok {
+		return fmt.Errorf("expected output key %s to be a string, got %T", outputKeys[0], outputValues[outputKeys[0]])
+	}
+
+	return json.Unmarshal([]byte(outputString), v)
 }
 
 // setupChainCallbackHandler sets up the chain callback handler in the context, which will be passed down to Chain calls.
