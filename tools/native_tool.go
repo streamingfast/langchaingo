@@ -57,8 +57,6 @@ func NewNativeTool[I any, O any](toolCall NativeToolCallFunc[I, O], description 
 		return nil, fmt.Errorf("get json schema: %w", err)
 	}
 
-	fmt.Println("Func Name: ", funcName)
-
 	return &NativeTool{
 		name:        funcName,
 		description: description,
@@ -67,7 +65,15 @@ func NewNativeTool[I any, O any](toolCall NativeToolCallFunc[I, O], description 
 	}, nil
 }
 
+// getNativeToolCallFunction creates a wrapper function that handles the conversion between JSON-formatted
+// tool calls and strongly-typed Go functions. It manages type conversion, input validation, and callback handling
+// for native tool implementations.
+//
+// The returned function handles both cases where I is a struct or a pointer to struct, automatically
+// performing the necessary type conversions and validation. It also integrates with the callback system
+// to provide hooks for monitoring tool execution.
 func getNativeToolCallFunction[I any, O any](toolCallInput reflect.Type, toolCallFunc NativeToolCallFunc[I, O]) func(ctx context.Context, llmToolCall llms.ToolCall) (output string, err error) {
+	// nolint:nonamedreturns
 	return func(ctx context.Context, toolCall llms.ToolCall) (output string, err error) {
 		input := toolCall.FunctionCall.Arguments
 		var funcInput I
@@ -145,10 +151,26 @@ func getJSONSchema(in any) (map[string]any, error) {
 	return out, nil
 }
 
+// getFunctionName extracts a clean function name from a NativeToolCallFunc.
+// It processes the fully qualified function name (e.g., "github.com/org/pkg/module.funcName")
+// to extract just the function name, removing any compiler-generated suffixes.
+//
+// For example:
+// - Input:  "github.com/example/pkg/weather.GetWeather-fm"
+// - Output: "GetWeather"
+//
+// The -fm suffix is commonly added by Go's compiler for function methods.
 func getFunctionName[I any, O any](toolCall NativeToolCallFunc[I, O]) string {
 	in := runtime.FuncForPC(reflect.ValueOf(toolCall).Pointer()).Name()
 	chunks := strings.Split(in, "/")
 	fullName := chunks[len(chunks)-1]
 	nameChunk := strings.Split(fullName, ".")
-	return nameChunk[len(nameChunk)-1]
+
+	// Get the last part and remove the -fm suffix if present
+	name := nameChunk[len(nameChunk)-1]
+	if idx := strings.Index(name, "-fm"); idx != -1 {
+		name = name[:idx]
+	}
+
+	return name
 }

@@ -324,23 +324,25 @@ func handleContentBlockStartEvent(event map[string]interface{}, response Message
 		return response, fmt.Errorf("expected index to be greater then content")
 	}
 
-	var content Content
-	switch contentBlock["type"].(string) {
+	contentType, ok := contentBlock["type"].(string)
+	if !ok {
+		return response, fmt.Errorf("expected content block type to be a string")
+	}
+	switch contentType {
 	case "text":
-		content = &TextContent{
+		response.Content = append(response.Content, &TextContent{
 			Type: "text",
 			Text: contentBlock["text"].(string),
-		}
+		})
 	case "tool_use":
-		content = &ToolUseContent{
+		response.Content = append(response.Content, &ToolUseContent{
 			Type:  "tool_use",
 			ID:    contentBlock["id"].(string),
 			Name:  contentBlock["name"].(string),
 			Input: make(map[string]interface{}),
-		}
+		})
 	}
 
-	response.Content = append(response.Content, content)
 	return response, nil
 }
 

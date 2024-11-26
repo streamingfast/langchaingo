@@ -168,7 +168,7 @@ func (t *LangChainTracer) HandleLLMToolCallStart(ctx context.Context, toolCall l
 		SetName(toolCall.FunctionCall.Name).
 		SetRunType("tool").
 		SetInputs(KVMap{
-			"inputs": toolCall.FunctionCall.Arguments,
+			"input": toolCall.FunctionCall.Arguments,
 		}).
 		SetExtra(t.getExtra(KVMap{
 			"tool_name": toolCall.FunctionCall.Name,

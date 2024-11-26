@@ -38,6 +38,7 @@ linters:
     - canonicalheader
     - intrange
     - testifylint
+    - recvcheck
 
 linters-settings:
   cyclop:
