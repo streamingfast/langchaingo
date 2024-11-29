@@ -77,6 +77,8 @@ func run() error {
 	fmt.Println("")
 	fmt.Println("------------------------------------------------------")
 	fmt.Println("Demoing JSON output leveraging a prompt schema")
+	// This example demonstrates how to use a prompt of type System to generate JSON output. Note, you are NOT guaranteed to get solely get JSON output (unlike structred output).
+	// Prior to structured outputs and tools calls, we would have to use a prompt of type System to ask the LLM to format the output as JSON.
 	if err := runOutputAsJson(ctx, llmModel, []*tools.NativeTool{getCurrentWeatherToolCall, getStockPriceToolCall, storeRecordToolCall}, langsmithClient, os.Getenv("LANGCHAIN_PROJECT")); err != nil {
 		return fmt.Errorf("runOutputAsJson: %w", err)
 	}
@@ -84,6 +86,7 @@ func run() error {
 	fmt.Println("")
 	fmt.Println("------------------------------------------------------")
 	fmt.Println("Demoing JSON output via a tool call")
+	// This example demonstrates how to use tools calls instead of a JSON output
 	if err := runOutputViaTool(ctx, llmModel, []*tools.NativeTool{getCurrentWeatherToolCall, getStockPriceToolCall, storeRecordToolCall}, langsmithClient, os.Getenv("LANGCHAIN_PROJECT")); err != nil {
 		return fmt.Errorf("runOutputViaTool: %w", err)
 	}
@@ -91,6 +94,7 @@ func run() error {
 	fmt.Println("")
 	fmt.Println("------------------------------------------------------")
 	fmt.Println("Demoing structured output")
+	// This example demonstrates how to use strcutured output to generate a JSON output
 	if err := runStructuredOutput(ctx, llmModel, []*tools.NativeTool{getCurrentWeatherToolCall, getStockPriceToolCall, storeRecordToolCall}, langsmithClient, os.Getenv("LANGCHAIN_PROJECT")); err != nil {
 		return fmt.Errorf("runOutputViaTool: %w", err)
 	}
@@ -111,6 +115,7 @@ func runOutputAsJson(ctx context.Context, llmModel llms.Model, tools []*tools.Na
 	// ----------------------------------------------------------------------------
 	runID := uuid.New().String()
 	langChainTracer, err := langsmith.NewTracer(
+		langsmith.WithName("json-output"),
 		langsmith.WithLogger(&LangchainLogger{Logger: logger}),
 		langsmith.WithProjectName(langchainProject),
 		langsmith.WithClient(langsmithClient),
@@ -161,6 +166,7 @@ func runStructuredOutput(ctx context.Context, llmModel llms.Model, tools []*tool
 	// ----------------------------------------------------------------------------
 	runID := uuid.New().String()
 	langChainTracer, err := langsmith.NewTracer(
+		langsmith.WithName("structured-output"),
 		langsmith.WithLogger(&LangchainLogger{Logger: logger}),
 		langsmith.WithProjectName(langchainProject),
 		langsmith.WithClient(langsmithClient),
@@ -246,6 +252,7 @@ func runOutputViaTool(ctx context.Context, llmModel llms.Model, tools []*tools.N
 	// ----------------------------------------------------------------------------
 	runID := uuid.New().String()
 	langChainTracer, err := langsmith.NewTracer(
+		langsmith.WithName("tool-output"),
 		langsmith.WithLogger(&LangchainLogger{Logger: logger}),
 		langsmith.WithProjectName(langchainProject),
 		langsmith.WithClient(langsmithClient),

@@ -29,7 +29,7 @@ type LangChainTracer struct {
 
 func NewTracer(opts ...LangChainTracerOption) (*LangChainTracer, error) {
 	tracer := &LangChainTracer{
-		name:        "langchain_tracer",
+		name:        "RunnableSequence",
 		projectName: "default",
 		client:      nil,
 		runID:       uuid.New().String(),
@@ -120,7 +120,7 @@ func (t *LangChainTracer) HandleLLMError(ctx context.Context, err error) {
 // HandleChainStart implements callbacks.Handler.
 func (t *LangChainTracer) HandleChainStart(ctx context.Context, inputs map[string]any) {
 	t.activeTree = NewRunTree(t.runID).
-		SetName("RunnableSequence").
+		SetName(t.name).
 		SetClient(t.client).
 		SetProjectName(t.projectName).
 		SetRunType("chain").
