@@ -244,7 +244,7 @@ func (tc *ToolCall) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("invalid type field in ToolCall")
 	}
 	var fc FunctionCall
-	fmt.Println("toolCall:", toolCall["function"])
+
 	fcData, ok := toolCall["function"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("error unmarshalling function call")
