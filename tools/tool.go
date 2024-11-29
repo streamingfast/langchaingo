@@ -18,7 +18,7 @@ type NativeToolCallFunc[I any, O any] func(context.Context, I) (O, error)
 type NativeTool struct {
 	name        string
 	description string
-	call        func(context.Context, llms.ToolCall) (string, error)
+	execFunc    func(context.Context, llms.ToolCall) (string, error)
 	jsonSchema  map[string]any
 }
 
@@ -30,11 +30,11 @@ func (n *NativeTool) Description() string {
 	return n.description
 }
 
-func (n *NativeTool) Call(ctx context.Context, toolCall llms.ToolCall) (string, error) {
-	return n.call(ctx, toolCall)
+func (n *NativeTool) Execute(ctx context.Context, toolCall llms.ToolCall) (string, error) {
+	return n.execFunc(ctx, toolCall)
 }
 
-func (n *NativeTool) ToLLmTool() llms.Tool {
+func (n *NativeTool) ToLLMTool() llms.Tool {
 	return llms.Tool{
 		Type: "function",
 		Function: &llms.FunctionDefinition{

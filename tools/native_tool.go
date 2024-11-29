@@ -60,7 +60,7 @@ func NewNativeTool[I any, O any](toolCall NativeToolCallFunc[I, O], description 
 	return &NativeTool{
 		name:        funcName,
 		description: description,
-		call:        getNativeToolCallFunction(secondArg, toolCall),
+		execFunc:    getNativeToolCallFunction(secondArg, toolCall),
 		jsonSchema:  properties,
 	}, nil
 }

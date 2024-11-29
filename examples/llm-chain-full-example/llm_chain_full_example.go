@@ -126,7 +126,7 @@ func runOutputAsJson(ctx context.Context, llmModel llms.Model, tools []*tools.Na
 	}
 
 	fmt.Println("> Running prompt with runID", runID)
-	output := &Response{}
+	output := &MyWeatherStockResponse{}
 
 	err = chains.CallInto(
 		ctx,
@@ -178,7 +178,7 @@ func runStructuredOutput(ctx context.Context, llmModel llms.Model, tools []*tool
 
 	fmt.Println("> Running prompt with runID", runID)
 
-	output := &Response{}
+	output := &MyWeatherStockResponse{}
 
 	err = chains.CallInto(
 		ctx,
@@ -288,7 +288,7 @@ func runOutputViaTool(ctx context.Context, llmModel llms.Model, tools []*tools.N
 }
 
 func schemaPrompt() string {
-	resp := &Response{
+	resp := &MyWeatherStockResponse{
 		ChainOfThought: "The current weather in Montreal, QC is 20 degrees Celsius with a chance of rain.",
 		Answer:         "The current weather in Montreal, QC is 20 degrees Celsius with a chance of rain.",
 		Confidence:     0.9,
@@ -321,7 +321,7 @@ func schemaPrompt() string {
 `, schemaStr, exampleStr)
 }
 
-type Response struct {
+type MyWeatherStockResponse struct {
 	ChainOfThought string  `json:"chain-of-thought" jsonschema_description:"Explanation of the chain of thought leading to the question being answered"`
 	Answer         string  `json:"answer" jsonschema_description:"answer the question"`
 	Confidence     float64 `json:"confidence-score" jsonschema_description:"Confidence score of the answer. It should be between 0 and 1"`
