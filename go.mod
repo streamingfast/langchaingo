@@ -99,7 +99,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
-	github.com/invopop/jsonschema v0.12.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
@@ -162,7 +161,6 @@ require (
 	gitlab.com/golang-commonmark/linkify v0.0.0-20191026162114-a0c2df6c8f82 // indirect
 	gitlab.com/golang-commonmark/mdurl v0.0.0-20191124015652-932350d1cb84 // indirect
 	gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f // indirect
-	go.mongodb.org/mongo-driver/v2 v2.0.0-beta1 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.51.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.51.0 // indirect
@@ -207,6 +205,7 @@ require (
 	github.com/gocolly/colly v1.2.0
 	github.com/google/generative-ai-go v0.15.1
 	github.com/google/go-cmp v0.6.0
+	github.com/invopop/jsonschema v0.12.0
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80
 	github.com/mattn/go-sqlite3 v1.14.17
@@ -224,6 +223,7 @@ require (
 	github.com/weaviate/weaviate-go-client/v4 v4.13.1
 	gitlab.com/golang-commonmark/markdown v0.0.0-20211110145824-bf3e522c626a
 	go.mongodb.org/mongo-driver v1.14.0
+	go.mongodb.org/mongo-driver/v2 v2.0.0-beta1
 	go.starlark.net v0.0.0-20230302034142-4b1e35fe2254
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 	golang.org/x/tools v0.14.0
