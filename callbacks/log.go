@@ -59,10 +59,6 @@ func (l LogHandler) HandleText(_ context.Context, text string) {
 	fmt.Println(text)
 }
 
-func (l LogHandler) HandleLLMStart(_ context.Context, prompts []string) {
-	fmt.Println("Entering LLM with prompts:", prompts)
-}
-
 func (l LogHandler) HandleLLMError(_ context.Context, err error) {
 	fmt.Println("Exiting LLM with error:", err)
 }
@@ -105,6 +101,14 @@ func (l LogHandler) HandleRetrieverStart(_ context.Context, query string) {
 
 func (l LogHandler) HandleRetrieverEnd(_ context.Context, query string, documents []schema.Document) {
 	fmt.Println("Exiting retriever with documents for query:", documents, query)
+}
+
+func (l LogHandler) HandleLLMToolCallStart(context.Context, llms.ToolCall) {
+	fmt.Println("Entering tool call")
+}
+
+func (l LogHandler) HandleLLMToolCallEnd(context.Context, string) {
+	fmt.Println("Exiting tool call")
 }
 
 func formatChainValues(values map[string]any) string {

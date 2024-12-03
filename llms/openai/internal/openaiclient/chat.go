@@ -391,6 +391,8 @@ func (c *Client) createChat(ctx context.Context, payload *ChatRequest) (*ChatCom
 
 	c.setHeaders(req)
 
+	req.Header.Set("Accept", "application/json")
+
 	// Send request
 	r, err := c.httpClient.Do(req)
 	if err != nil {

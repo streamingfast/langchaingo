@@ -14,16 +14,19 @@ import (
 )
 
 var (
-	ErrInvalidEventType        = fmt.Errorf("invalid event type field type")
-	ErrInvalidMessageField     = fmt.Errorf("invalid message field type")
-	ErrInvalidUsageField       = fmt.Errorf("invalid usage field type")
-	ErrInvalidIndexField       = fmt.Errorf("invalid index field type")
-	ErrInvalidDeltaField       = fmt.Errorf("invalid delta field type")
-	ErrInvalidDeltaTypeField   = fmt.Errorf("invalid delta type field type")
-	ErrInvalidDeltaTextField   = fmt.Errorf("invalid delta text field type")
-	ErrContentIndexOutOfRange  = fmt.Errorf("content index out of range")
-	ErrFailedCastToTextContent = fmt.Errorf("failed to cast content to TextContent")
-	ErrInvalidFieldType        = fmt.Errorf("invalid field type")
+	ErrInvalidEventType           = fmt.Errorf("invalid event type field type")
+	ErrInvalidMessageField        = fmt.Errorf("invalid message field type")
+	ErrInvalidUsageField          = fmt.Errorf("invalid usage field type")
+	ErrInvalidIndexField          = fmt.Errorf("invalid index field type")
+	ErrInvalidDeltaField          = fmt.Errorf("invalid delta field type")
+	ErrInvalidDeltaTypeField      = fmt.Errorf("invalid delta type field type")
+	ErrInvalidDeltaTextField      = fmt.Errorf("invalid delta text field type")
+	ErrInvalidDeltaInputJSONField = fmt.Errorf("invalid delta input JSON field type")
+	ErrContentIndexOutOfRange     = fmt.Errorf("content index out of range")
+	ErrFailedCastToTextContent    = fmt.Errorf("failed to cast content to TextContent")
+	ErrFailedCastToToolUseContent = fmt.Errorf("failed to cast content to ToolUseContent")
+	ErrInvalidFieldType           = fmt.Errorf("invalid field type")
+	ErrInvalidContentBlockField   = fmt.Errorf("invalid content block field")
 )
 
 type ChatMessage struct {
@@ -71,6 +74,9 @@ type ToolUseContent struct {
 	ID    string                 `json:"id"`
 	Name  string                 `json:"name"`
 	Input map[string]interface{} `json:"input"`
+
+	// we added this field to the struct, to accumulate the input while in streaming mode
+	inputAccumulator string
 }
 
 func (tuc ToolUseContent) GetType() string {
@@ -215,6 +221,7 @@ func parseStreamingMessageResponse(ctx context.Context, r *http.Response, payloa
 			if line == "" || !strings.HasPrefix(line, "data:") {
 				continue
 			}
+
 			data := strings.TrimPrefix(line, "data: ")
 			event, err := parseStreamEvent(data)
 			if err != nil {
@@ -239,6 +246,7 @@ func parseStreamingMessageResponse(ctx context.Context, r *http.Response, payloa
 		}
 		lastResponse = event.Response
 	}
+
 	return lastResponse, nil
 }
 
@@ -261,7 +269,7 @@ func processStreamEvent(ctx context.Context, event map[string]interface{}, paylo
 	case "content_block_delta":
 		return handleContentBlockDeltaEvent(ctx, event, response, payload)
 	case "content_block_stop":
-		// Nothing to do here
+		return handleContentBlockStopEvent(event, response)
 	case "message_delta":
 		return handleMessageDeltaEvent(event, response)
 	case "message_stop":
@@ -308,17 +316,57 @@ func handleContentBlockStartEvent(event map[string]interface{}, response Message
 	}
 	index := int(indexValue)
 
-	var eventType string
-	if cb, ok := event["content_block"].(map[string]any); ok {
-		typ, _ := cb["type"].(string)
-		eventType = typ
+	contentBlock, ok := event["content_block"].(map[string]any)
+	if !ok {
+		return response, ErrInvalidContentBlockField
+	}
+	if index < len(response.Content) {
+		return response, fmt.Errorf("expected index to be greater then content")
 	}
 
-	if len(response.Content) <= index {
+	contentType, ok := contentBlock["type"].(string)
+	if !ok {
+		return response, fmt.Errorf("expected content block type to be a string")
+	}
+	switch contentType {
+	case "text":
 		response.Content = append(response.Content, &TextContent{
-			Type: eventType,
+			Type: "text",
+			Text: contentBlock["text"].(string),
+		})
+	case "tool_use":
+		response.Content = append(response.Content, &ToolUseContent{
+			Type:  "tool_use",
+			ID:    contentBlock["id"].(string),
+			Name:  contentBlock["name"].(string),
+			Input: make(map[string]interface{}),
 		})
 	}
+
+	return response, nil
+}
+
+func handleContentBlockStopEvent(event map[string]interface{}, response MessageResponsePayload) (MessageResponsePayload, error) {
+	indexValue, ok := event["index"].(float64)
+	if !ok {
+		return response, ErrInvalidIndexField
+	}
+	index := int(indexValue)
+	if index >= len(response.Content) {
+		return response, fmt.Errorf("expected index to be in content array")
+	}
+
+	contentBlock := response.Content[index]
+	switch v := contentBlock.(type) {
+	case *TextContent:
+		// nothing to do
+	case *ToolUseContent:
+		if err := json.Unmarshal([]byte(v.inputAccumulator), &v.Input); err != nil {
+			return response, fmt.Errorf("failed to unmarshal input: %w", err)
+		}
+		response.Content[index] = v
+	}
+
 	return response, nil
 }
 
@@ -338,8 +386,10 @@ func handleContentBlockDeltaEvent(ctx context.Context, event map[string]interfac
 		return response, ErrInvalidDeltaTypeField
 	}
 
+	text := ""
+
 	if deltaType == "text_delta" {
-		text, ok := delta["text"].(string)
+		text, ok = delta["text"].(string)
 		if !ok {
 			return response, ErrInvalidDeltaTextField
 		}
@@ -353,11 +403,22 @@ func handleContentBlockDeltaEvent(ctx context.Context, event map[string]interfac
 		textContent.Text += text
 	}
 
-	if payload.StreamingFunc != nil {
-		text, ok := delta["text"].(string)
+	if deltaType == "input_json_delta" {
+		text, ok = delta["partial_json"].(string)
 		if !ok {
-			return response, ErrInvalidDeltaTextField
+			return response, ErrInvalidDeltaInputJSONField
 		}
+		if len(response.Content) <= index {
+			return response, ErrContentIndexOutOfRange
+		}
+		textContent, ok := response.Content[index].(*ToolUseContent)
+		if !ok {
+			return response, ErrFailedCastToToolUseContent
+		}
+		textContent.inputAccumulator += text
+	}
+
+	if payload.StreamingFunc != nil {
 		err := payload.StreamingFunc(ctx, []byte(text))
 		if err != nil {
 			return response, fmt.Errorf("streaming func returned an error: %w", err)

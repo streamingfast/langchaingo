@@ -122,6 +122,20 @@ func (ToolCallResponse) isPart() {}
 // It can potentially return multiple content choices.
 type ContentResponse struct {
 	Choices []*ContentChoice
+	// trackingOutputs is arbitrary information the model can send to the tracer.
+	tracingOutput *TracingOutput
+}
+
+type TracingOutput struct {
+	Output map[string]any
+}
+
+func (cr *ContentResponse) SetTracingOutput(v *TracingOutput) {
+	cr.tracingOutput = v
+}
+
+func (cr *ContentResponse) GetTracingOutput() *TracingOutput {
+	return cr.tracingOutput
 }
 
 // ContentChoice is one of the response choices returned by GenerateContent

@@ -2,7 +2,9 @@ package chains
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/tmc/langchaingo/callbacks"
@@ -28,6 +30,8 @@ type Chain interface {
 
 // Call is the standard function used for executing chains.
 func Call(ctx context.Context, c Chain, inputValues map[string]any, options ...ChainCallOption) (map[string]any, error) { // nolint: lll
+	ctx = setupChainCallbackHandler(ctx, c, options)
+
 	fullValues := make(map[string]any, 0)
 	for key, value := range inputValues {
 		fullValues[key] = value
@@ -42,21 +46,22 @@ func Call(ctx context.Context, c Chain, inputValues map[string]any, options ...C
 		fullValues[key] = value
 	}
 
-	callbacksHandler := getChainCallbackHandler(c)
-	if callbacksHandler != nil {
-		callbacksHandler.HandleChainStart(ctx, inputValues)
+	chainCallbackHandlers := callbacks.CallbackHandler(ctx)
+
+	if chainCallbackHandlers != nil {
+		chainCallbackHandlers.HandleChainStart(ctx, inputValues)
 	}
 
 	outputValues, err := callChain(ctx, c, fullValues, options...)
 	if err != nil {
-		if callbacksHandler != nil {
-			callbacksHandler.HandleChainError(ctx, err)
+		if chainCallbackHandlers != nil {
+			chainCallbackHandlers.HandleChainError(ctx, err)
 		}
 		return outputValues, err
 	}
 
-	if callbacksHandler != nil {
-		callbacksHandler.HandleChainEnd(ctx, outputValues)
+	if chainCallbackHandlers != nil {
+		chainCallbackHandlers.HandleChainEnd(ctx, outputValues) // Call the chain end
 	}
 
 	if err = c.GetMemory().SaveContext(ctx, inputValues, outputValues); err != nil {
@@ -64,6 +69,45 @@ func Call(ctx context.Context, c Chain, inputValues map[string]any, options ...C
 	}
 
 	return outputValues, nil
+}
+
+// CallInto calls the chain and unmarshals the output in the value pointed to by v. If v is nil or not a pointer, returns an error.
+func CallInto(ctx context.Context, c Chain, inputValues map[string]any, v any, options ...ChainCallOption) error {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
+		return fmt.Errorf("v is not a pointer")
+	}
+
+	outputValues, err := Call(ctx, c, inputValues, options...)
+	if err != nil {
+		return err
+	}
+
+	outputKeys := c.GetOutputKeys()
+	if len(outputKeys) == 0 {
+		return fmt.Errorf("expected at least one output key, got %d", len(outputKeys))
+	}
+
+	outputString, ok := outputValues[outputKeys[0]].(string)
+	if !ok {
+		return fmt.Errorf("expected output key %s to be a string, got %T", outputKeys[0], outputValues[outputKeys[0]])
+	}
+
+	return json.Unmarshal([]byte(outputString), v)
+}
+
+// setupChainCallbackHandler sets up the chain callback handler in the context, which will be passed down to Chain calls.
+// we will prioritize a callback handler set in the options, and fallback to a chain specific if set.
+func setupChainCallbackHandler(ctx context.Context, c Chain, options []ChainCallOption) context.Context {
+	// if callback handler is set in options, prioritize that
+	if handler := getChainCallCallbackHandler(options); handler != nil {
+		return callbacks.WithCallback(ctx, handler)
+	}
+
+	if handler := getChainCallbackHandler(c); handler != nil {
+		return callbacks.WithCallback(ctx, handler)
+	}
+	return ctx
 }
 
 func callChain(

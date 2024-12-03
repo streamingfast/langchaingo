@@ -1,0 +1,350 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+	"reflect"
+
+	"github.com/google/uuid"
+	"github.com/invopop/jsonschema"
+	"github.com/streamingfast/logging"
+	"github.com/tmc/langchaingo/chains"
+	"github.com/tmc/langchaingo/langsmith"
+	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/prompts"
+	"github.com/tmc/langchaingo/tools"
+)
+
+var flagLLMModel = flag.String("llm-model", "gpt-4o-2024-08-06", "model to use (e.g. 'gpt-4o', 'gpt-4o-mini', 'claude-3-5-haiku', 'claude-3-5-sonnet', 'claude-3-5-sonnet-20241022')")
+
+var logger, _ = logging.PackageLogger("llm_chain_full_example", "github.com/tmc/langchaingo/examples/llm-chain-full-example")
+
+func init() {
+	logging.InstantiateLoggers()
+}
+
+func main() {
+	logger.Info("Starting LLM chain full example")
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	ctx := context.Background()
+
+	if flagLLMModel == nil {
+		return fmt.Errorf("llm model must be provided")
+	}
+
+	llmModel, err := getLLMModel()
+	if err != nil {
+		return fmt.Errorf("llm model: %w", err)
+	}
+
+	myTools := &Tools{
+		logger: logger,
+	}
+
+	getCurrentWeatherToolCall, err := tools.NewNativeTool(myTools.getCurrentWeather, "Get a location's current weather")
+	if err != nil {
+		return fmt.Errorf("getCurrentWeatherToolCall: %w", err)
+	}
+
+	getStockPriceToolCall, err := tools.NewNativeTool(myTools.getStockPrice, "Get a symbol's stock price")
+	if err != nil {
+		return fmt.Errorf("getCurrentWeatherToolCall: %w", err)
+	}
+
+	storeRecordToolCall, err := tools.NewNativeTool(myTools.storeRecord, "Store the temperature and stock price")
+	if err != nil {
+		return fmt.Errorf("storeRecordToolCall: %w", err)
+	}
+
+	langsmithClient, err := langsmith.NewClient(
+		langsmith.WithAPIKey(os.Getenv("LANGCHAIN_API_KEY")),
+		langsmith.WithAPIURL("https://api.smith.langchain.com"),
+		langsmith.WithClientLogger(&LangchainLogger{logger}),
+	)
+	if err != nil {
+		return fmt.Errorf("new langsmith client: %w", err)
+	}
+
+	fmt.Println("")
+	fmt.Println("------------------------------------------------------")
+	fmt.Println("Demoing JSON output leveraging a prompt schema")
+	// This example demonstrates how to use a prompt of type System to generate JSON output. Note, you are NOT guaranteed to get solely get JSON output (unlike structred output).
+	// Prior to structured outputs and tools calls, we would have to use a prompt of type System to ask the LLM to format the output as JSON.
+	if err := runOutputAsJson(ctx, llmModel, []*tools.NativeTool{getCurrentWeatherToolCall, getStockPriceToolCall, storeRecordToolCall}, langsmithClient, os.Getenv("LANGCHAIN_PROJECT")); err != nil {
+		return fmt.Errorf("runOutputAsJson: %w", err)
+	}
+
+	fmt.Println("")
+	fmt.Println("------------------------------------------------------")
+	fmt.Println("Demoing JSON output via a tool call")
+	// This example demonstrates how to use tools calls instead of a JSON output
+	if err := runOutputViaTool(ctx, llmModel, []*tools.NativeTool{getCurrentWeatherToolCall, getStockPriceToolCall, storeRecordToolCall}, langsmithClient, os.Getenv("LANGCHAIN_PROJECT")); err != nil {
+		return fmt.Errorf("runOutputViaTool: %w", err)
+	}
+
+	fmt.Println("")
+	fmt.Println("------------------------------------------------------")
+	fmt.Println("Demoing structured output")
+	// This example demonstrates how to use strcutured output to generate a JSON output
+	if err := runStructuredOutput(ctx, llmModel, []*tools.NativeTool{getCurrentWeatherToolCall, getStockPriceToolCall, storeRecordToolCall}, langsmithClient, os.Getenv("LANGCHAIN_PROJECT")); err != nil {
+		return fmt.Errorf("runOutputViaTool: %w", err)
+	}
+
+	return nil
+}
+
+func runOutputAsJson(ctx context.Context, llmModel llms.Model, tools []*tools.NativeTool, langsmithClient *langsmith.Client, langchainProject string) error {
+	prompTemplates := prompts.NewChatPromptTemplate([]prompts.MessageFormatter{
+		prompts.NewSystemMessagePromptTemplate("You are a weather and stock expert", nil),
+		prompts.NewSystemMessagePromptTemplate(schemaPrompt(), nil),
+		prompts.NewHumanMessagePromptTemplate("What is the current weather in {{.location}} and the stock price of {{.symbol}}", nil),
+	})
+
+	llmChain := chains.NewLLMChainV2(llmModel, prompTemplates)
+	llmChain.RegisterTools(tools...)
+
+	// ----------------------------------------------------------------------------
+	runID := uuid.New().String()
+	langChainTracer, err := langsmith.NewTracer(
+		langsmith.WithName("json-output"),
+		langsmith.WithLogger(&LangchainLogger{Logger: logger}),
+		langsmith.WithProjectName(langchainProject),
+		langsmith.WithClient(langsmithClient),
+		langsmith.WithRunID(runID),
+	)
+	if err != nil {
+		return fmt.Errorf("chain tracer: %w", err)
+	}
+
+	fmt.Println("> Running prompt with runID", runID)
+	output := &MyWeatherStockResponse{}
+
+	err = chains.CallInto(
+		ctx,
+		llmChain,
+		map[string]any{
+			"location": "Montreal, QC",
+			"symbol":   "AAPL",
+		},
+		output,
+		chains.WithModel(*flagLLMModel),
+		chains.WithTemperature(0.1),
+		chains.WithSeed(123),
+		chains.WithCallback(langChainTracer),
+		chains.WithJSONMode(),
+	)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("")
+	fmt.Println("Chain of thought: ")
+	fmt.Println(output.ChainOfThought)
+	fmt.Println("> Answer: ", output.Answer)
+	fmt.Println("> Confidence score: ", output.Confidence)
+	return nil
+}
+
+func runStructuredOutput(ctx context.Context, llmModel llms.Model, tools []*tools.NativeTool, langsmithClient *langsmith.Client, langchainProject string) error {
+	prompTemplates := prompts.NewChatPromptTemplate([]prompts.MessageFormatter{
+		prompts.NewSystemMessagePromptTemplate("You are a weather and stock expert", nil),
+		prompts.NewHumanMessagePromptTemplate("What is the current weather in {{.location}} and the stock price of {{.symbol}}", nil),
+	})
+
+	llmChain := chains.NewLLMChainV2(llmModel, prompTemplates)
+	llmChain.RegisterTools(tools...)
+
+	// ----------------------------------------------------------------------------
+	runID := uuid.New().String()
+	langChainTracer, err := langsmith.NewTracer(
+		langsmith.WithName("structured-output"),
+		langsmith.WithLogger(&LangchainLogger{Logger: logger}),
+		langsmith.WithProjectName(langchainProject),
+		langsmith.WithClient(langsmithClient),
+		langsmith.WithRunID(runID),
+	)
+	if err != nil {
+		return fmt.Errorf("chain tracer: %w", err)
+	}
+
+	fmt.Println("> Running prompt with runID", runID)
+
+	output := &MyWeatherStockResponse{}
+
+	err = chains.CallInto(
+		ctx,
+		llmChain,
+		map[string]any{
+			"location": "Montreal, QC",
+			"symbol":   "AAPL",
+		},
+		output,
+		chains.WithModel(*flagLLMModel),
+		chains.WithTemperature(0.1),
+		chains.WithSeed(123),
+		chains.WithCallback(langChainTracer),
+		chains.WithJSONFormat(`{
+    "type": "json_schema",
+    "json_schema":
+    {
+        "name": "test_response",
+        "strict": true,
+        "schema":
+        {
+            "type": "object",
+            "properties":
+            {
+                "chain-of-thought":
+                {
+                    "type": "string",
+                    "description": "Explanation of the chain of thought leading to the question being answered"
+                },
+                "answer":
+                {
+                    "type": "string",
+                    "description": "answer the question"
+                },
+                "confidence-score":
+                {
+                    "type": "number",
+                    "description": "Confidence score of the answer. It should be between 0 and 1"
+                }
+            },
+            "required":
+            [
+                "chain-of-thought",
+                "answer",
+                "confidence-score"
+            ]
+        }
+    }
+}`))
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("")
+	fmt.Println("Chain of thought: ")
+	fmt.Println(output.ChainOfThought)
+	fmt.Println("> Answer: ", output.Answer)
+	fmt.Println("> Confidence score: ", output.Confidence)
+	return nil
+}
+
+func runOutputViaTool(ctx context.Context, llmModel llms.Model, tools []*tools.NativeTool, langsmithClient *langsmith.Client, langchainProject string) error {
+	prompTemplates := prompts.NewChatPromptTemplate([]prompts.MessageFormatter{
+		prompts.NewSystemMessagePromptTemplate("You are a weather and stock expert. store the temperature and stock price", nil),
+		prompts.NewHumanMessagePromptTemplate("What is the current weather in {{.location}} and the stock price of {{.symbol}}", nil),
+	})
+
+	llmChain := chains.NewLLMChainV2(llmModel, prompTemplates)
+	llmChain.RegisterTools(tools...)
+
+	// ----------------------------------------------------------------------------
+	runID := uuid.New().String()
+	langChainTracer, err := langsmith.NewTracer(
+		langsmith.WithName("tool-output"),
+		langsmith.WithLogger(&LangchainLogger{Logger: logger}),
+		langsmith.WithProjectName(langchainProject),
+		langsmith.WithClient(langsmithClient),
+		langsmith.WithRunID(runID),
+	)
+	if err != nil {
+		return fmt.Errorf("chain tracer: %w", err)
+	}
+
+	fmt.Println("> Running prompt with runID", runID)
+	out, err := chains.Call(
+		ctx,
+		llmChain,
+		map[string]any{
+			"location": "Montreal, QC",
+			"symbol":   "AAPL",
+		},
+		chains.WithModel(*flagLLMModel),
+		chains.WithTemperature(0.1),
+		chains.WithSeed(123),
+		chains.WithCallback(langChainTracer),
+	)
+	if err != nil {
+		return err
+	}
+
+	response, ok := out["text"].(string)
+	if !ok {
+		return fmt.Errorf("invalid response type: %T", out["text"])
+	}
+	fmt.Print(response)
+	return nil
+}
+
+func schemaPrompt() string {
+	resp := &MyWeatherStockResponse{
+		ChainOfThought: "The current weather in Montreal, QC is 20 degrees Celsius with a chance of rain.",
+		Answer:         "The current weather in Montreal, QC is 20 degrees Celsius with a chance of rain.",
+		Confidence:     0.9,
+	}
+
+	schema, err := getJsonSchema(resp)
+	if err != nil {
+		panic(err)
+	}
+
+	schemaStr, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+
+	exampleStr, err := json.MarshalIndent(resp, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+
+	return fmt.Sprintf(`
+	Answer in a JSON format that respects the following JSON schema.
+	When the JSON schema specifies an enum list for a string, ensure that the returned value is actually in the list of allowed values, defined of the "enum" field and mention the available value in the 'chain_of_thought' field of your response.
+	
+	%s
+	
+	Here is an example of a valid JSON output
+	
+	%s
+`, schemaStr, exampleStr)
+}
+
+type MyWeatherStockResponse struct {
+	ChainOfThought string  `json:"chain-of-thought" jsonschema_description:"Explanation of the chain of thought leading to the question being answered"`
+	Answer         string  `json:"answer" jsonschema_description:"answer the question"`
+	Confidence     float64 `json:"confidence-score" jsonschema_description:"Confidence score of the answer. It should be between 0 and 1"`
+}
+
+func getJsonSchema(in any) (map[string]any, error) {
+	r := jsonschema.Reflector{}
+	r.AssignAnchor = false
+	r.Anonymous = true
+	r.AllowAdditionalProperties = false
+	r.DoNotReference = true
+	schema := r.ReflectFromType(reflect.TypeOf(in))
+
+	cnt, err := schema.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal json schema: %w", err)
+	}
+	out := map[string]any{}
+
+	if err := json.Unmarshal(cnt, &out); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json schema: %w", err)
+	}
+	delete(out, "$schema")
+	delete(out, "additionalProperties")
+	return out, nil
+}
