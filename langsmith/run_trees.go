@@ -21,6 +21,7 @@ type RunTree struct {
 	StartTime           time.Time
 	EndTime             time.Time
 	Extra               KVMap
+	Tags                []string
 	Error               string
 	Serialized          KVMap
 	Inputs              KVMap
@@ -82,6 +83,11 @@ func (t *RunTree) SetEndTime(endTime time.Time) *RunTree {
 
 func (t *RunTree) SetExtra(extra KVMap) *RunTree {
 	t.Extra = extra
+	return t
+}
+
+func (t *RunTree) SetTags(tags []string) *RunTree {
+	t.Tags = tags
 	return t
 }
 
@@ -208,6 +214,7 @@ func (t *RunTree) convertToCreate(excludeChildRuns bool) (*RunCreate, error) {
 			Inputs:             t.Inputs,
 			Outputs:            t.Outputs,
 			ParentRunID:        parentRunID,
+			Tags:               t.Tags,
 		},
 		SessionName: &t.ProjectName,
 		ChildRuns:   childRuns,

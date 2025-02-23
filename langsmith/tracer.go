@@ -23,6 +23,7 @@ type LangChainTracer struct {
 	activeTree  *RunTree
 	treeStack   stack
 	extras      KVMap
+	tags        []string
 	llmMetadata *tracing.TracerLLMMetadata
 	logger      LeveledLoggerInterface
 }
@@ -74,7 +75,8 @@ func (t *LangChainTracer) HandleLLMGenerateContentStart(ctx context.Context, ms 
 		SetInputs(KVMap{
 			"messages": inputsFromMessages(ms),
 		}).
-		SetExtra(t.getExtra(nil))
+		SetExtra(t.getExtra(nil)).
+		SetTags(t.tags)
 
 	t.activeTree.AppendChild(childTree)
 
@@ -125,8 +127,8 @@ func (t *LangChainTracer) HandleChainStart(ctx context.Context, inputs map[strin
 		SetProjectName(t.projectName).
 		SetRunType("chain").
 		SetInputs(inputs).
-		SetExtra(t.getExtra(nil))
-
+		SetExtra(t.getExtra(nil)).
+		SetTags(t.tags)
 	if err := t.activeTree.postRun(ctx, true); err != nil {
 		t.logLangSmithError("handle_chain_start", "post run", err)
 		return
@@ -173,7 +175,8 @@ func (t *LangChainTracer) HandleLLMToolCallStart(ctx context.Context, toolCall l
 		SetExtra(t.getExtra(KVMap{
 			"tool_name": toolCall.FunctionCall.Name,
 			"call_id":   toolCall.ID,
-		}))
+		})).
+		SetTags(t.tags)
 
 	t.activeTree.AppendChild(childTree)
 
@@ -251,12 +254,21 @@ func (t *LangChainTracer) getExtra(others KVMap) KVMap {
 	}
 
 	if t.llmMetadata != nil {
-		out["metadata"] = KVMap{
-			"ls_method":     "traceable",
-			"ls_model_name": t.llmMetadata.ModelName,
-			"ls_model_type": t.llmMetadata.ModelType,
-			"ls_provider":   t.llmMetadata.Provider,
+		var metadataKv KVMap
+		if value, found := out["metadata"]; found {
+			if v, ok := value.(KVMap); ok {
+				metadataKv = v
+			}
 		}
+		if metadataKv == nil {
+			metadataKv = make(KVMap)
+		}
+
+		metadataKv["ls_method"] = "traceable"
+		metadataKv["ls_model_name"] = t.llmMetadata.ModelName
+		metadataKv["ls_model_type"] = t.llmMetadata.ModelType
+		metadataKv["ls_provider"] = t.llmMetadata.Provider
+		out["metadata"] = metadataKv
 	}
 
 	out["runtime"] = KVMap{

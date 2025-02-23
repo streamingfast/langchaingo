@@ -45,3 +45,9 @@ func WithExtras(extras KVMap) LangChainTracerOption {
 		t.extras = extras
 	})
 }
+
+func WithTags(tags []string) LangChainTracerOption {
+	return langChainTracerOptionFunc(func(t *LangChainTracer) {
+		t.tags = append(t.tags, tags...)
+	})
+}
